@@ -56,6 +56,8 @@
   .tagline{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin:10px 0 4px}
   .tagline.s{color:var(--said)} .tagline.a{color:var(--assumed)} .tagline.w{color:#c58cff}
   #info ul{margin:0;padding-left:18px} #info li{margin:2px 0}
+  #info a.src{font-size:11px;color:var(--said);text-decoration:none;border:1px solid currentColor;border-radius:4px;padding:0 4px;margin-left:2px;white-space:nowrap;opacity:.85}
+  #info a.src:hover{opacity:1}
   #info .act{margin-top:10px;font-size:12.5px;color:var(--muted)}
   #tip{position:fixed;pointer-events:none;padding:3px 8px;border-radius:5px;background:rgba(0,0,0,.8);
     font-size:12px;display:none;z-index:5}
@@ -144,108 +146,127 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 /* ------------------------------------------------------------------ *
  *  What the podcast said vs. what this model assumes                 *
  * ------------------------------------------------------------------ */
+// Each "from the podcast" point is [text, quote id]. Links target the transcript's timestamp headings (#4749 for 47:49):
+// those ids are in the page's HTML, whereas the site's #q177-style paragraph ids are only added by script after load.
+const TRANSCRIPT='https://signalsandthreads.com/the-thermodynamics-of-trading/';
+const TS={q14:'03:33',q131:'33:41',q147:'39:44',q149:'40:35',q150:'41:01',q151:'41:34',q153:'41:55',q155:'42:50',q157:'43:10',
+  q159:'43:17',q161:'43:26',q166:'44:29',q169:'44:35',q170:'44:59',q175:'46:44',q177:'47:49',q179:'49:06',q180:'49:09',
+  q182:'49:25',q184:'50:03',q188:'50:53',q198:'52:17',q200:'52:37',q202:'53:26',q204:'54:26',q208:'55:00',q210:'55:48'};
 const INFO = {
   floor:{t:'Raised access floor',
-    s:['The trading floor sits on a raised floor roughly 12–16 inches deep.',
-       'Tiles are concrete. Some have holes for airflow, some have openings for fiber running to the end of each row.',
-       'Electricians lift tiles to get at the power modules and plug things in underneath.'],
+    s:[['The trading floor sits on a raised floor roughly 12–16 inches deep.','q157'],
+       ['Tiles are concrete. Some have holes for airflow, and some let fiber pass through to the end of the row.','q159'],
+       ['Lifting a tile is easy. Electricians do it to plug desks into the power modules underneath.','q177']],
     a:['600 mm square tiles on steel pedestals (a common standard; not stated).','Plenum depth drawn at 14 in (0.36 m), the middle of the stated range.']},
   plenum:{t:'Underfloor air plenum',
-    s:['The space under the floor is a pressurized, low-pressure plenum that spans the floor.',
-       'Air handlers push supply air into it at about 60–65°F, closer to 65.',
-       'Copper runs from the IDF rooms used to clog this space and block airflow, which is one reason they moved to fiber.'],
+    s:[['The space under the floor is pressurized, at very low pressure, and the air reaches all the way across the floor.','q161'],
+       ['Air handlers push supply air into it at 60–65°F, closer to 65.','q155'],
+       ['Bundles of copper from the IDF rooms grew big enough to block airflow under the floor, one reason they moved to fiber.','q177']],
     a:['Pedestal spacing and the exact cable routing under the floor.']},
   diffuser:{t:'Floor diffuser (rotatable)',
-    s:['Cool air comes up through floor diffusers next to each desk.',
-       'Users turn the diffuser to adjust how much air they get.',
-       'The air reaches the PC under the desk, then rises about 5–6 ft to the breathing zone.'],
+    s:[['Diffusers can be moved around the raised floor, so cooling follows a person or their PC when desks move.','q153'],
+       ['You can lean over and rotate a diffuser to set how much air you get.','q161'],
+       ['The same air cools the enclosed, high-power PCs under the traders’ desks.','q161'],
+       ['Air leaving the floor rises about 5–6 ft to the breathing zone, as fresh as it gets.','q188']],
     a:['Swirl-style round diffuser, one per desk position, placed under the PC enclosure.'],
     act:'Click the diffuser itself (the slotted disk in the floor) to turn it: open → half → closed. Its collar turns gray, amber, then red, and the blue air rising from it thins out and stops.'},
   pc:{t:'Under-desk PC enclosure',
-    s:['Traders’ high-power PCs sit under the desk in an enclosure.',
-       'The underfloor air reaches the PC there. This is a big part of why air comes up from the floor instead of down from the ceiling.'],
+    s:[['Traders have high-power PCs under the desk, in an enclosure, and cold air from the floor reaches them.','q161'],
+       ['Overhead cooling was ruled out partly because it doesn’t land where the desk lands.','q169']],
     a:['One PC per desk, enclosure size, and hanging it from the desk frame.','The podcast gives no wattage, GPU count, or form factor.']},
   desk:{t:'Standard trading desk',
-    s:['One desk design, metric-sized, is shipped to every office worldwide.',
-       'Each position is about 4 ft wide. Long rows, people close together, no private offices.',
-       'It has room for PCs, monitor arms, a raise/lower mechanism, a cable tray at the back for power and data, airflow perforations, and lockable wheels.',
-       'Desks used to be fixed. Moving a person meant taking apart monitors, keyboards and PCs. Wheeled desks came in before the move to the current building.'],
+    s:[['Desks are about 4 ft wide, in long rows with people close together and no private offices.','q149'],
+       ['Jane Street worked with manufacturers on one standard desk, built to metric and shipped worldwide. It fits their PCs, monitor arms, a raise/lower feature, a cable tray for power and data, airflow perforations, and lockable wheels.','q175'],
+       ['Desks used to be fixed, so a move meant taking apart monitors, keyboards and PCs. Wheels were the fix they came up with before moving into the current building.','q147'],
+       ['Your desk moves with you, set up the way you left it.','q169']],
     a:['1.2 m × 0.8 m top, back-to-back rows of 7, T-leg frame.','Aisle widths. The podcast gives none, so the aisles here are wide enough for a desk and chair to roll through.']},
   monitors:{t:'Monitors on arms',
-    s:['Monitors mount on monitor arms on the desk.'],
+    s:[['The standard desk had to take the monitor arms they like.','q175'],
+       ['People keep their keyboard, mouse and monitors set up exactly how they like them.','q169']],
     a:['How many monitors and how they are arranged. The podcast doesn’t say. Four in a 2×2 grid is a guess.']},
   tray:{t:'Cable tray (back of desk)',
-    s:['A cable tray along the back of each desk carries power and data.',
-       'The power whip comes up from the floor into it. Copper network cable stays above the floor, behind the desk.'],
+    s:[['The standard desk has a set place for a cable tray carrying power and networking.','q175'],
+       ['Power whips come up through a hub at the end of the row and run along the back of the desks in this tray. Copper network cable stays above the floor, behind the desk.','q177']],
     a:['Tray depth and position.']},
   casters:{t:'Lockable wheels',
-    s:['Desks roll on lockable wheels. A moves/adds/changes (MAC) team moves desks about every week, sometimes for hundreds of people.',
-       'Big reshuffles happen once or twice a year, including when interns arrive.'],
+    s:[['Desks have wheels that lock, so they can be rolled carefully to a new position.','q175'],
+       ['There’s a move about once a week, of varying size, run by a dedicated MAC (moves, adds and changes) team. Sometimes it’s hundreds of people.','q153'],
+       ['Any one person doesn’t move every week. Big reorganizations happen once or twice a year, partly to make room for interns.','q170']],
     a:['Caster style. The lock tabs turn green while a desk is unlocked and rolling.','The “Reshuffle” button is deliberately chaotic. Nothing in the podcast suggests anyone gets moved mid-trade.']},
   whip:{t:'Power whip',
-    s:['Pre-made whips, fixed or adjustable length, run under the floor from each desk position to the end-of-row hub.',
-       'The whip passes up into the cable tray behind the desk.'],
-    a:['Exact routing and how the bundle is laid out under the floor.']},
+    s:[['Whips are pre-made to fixed lengths depending on the desk’s position, and can be shortened if needed.','q177'],
+       ['They run under the floor out to the end of the row, come up through a hub, and run along the back of the desks in the cable tray.','q177']],
+    a:['How the whips are bundled under the floor.']},
+  hub:{t:'End-of-row hub',
+    s:[['At the end of each row, a hub is a pass-through where the power whips come up from under the floor and continue along the back of the desks.','q177']],
+    a:['What the hub looks like. It’s drawn as a slim post where each row starts.']},
   pmod:{t:'Power module box',
-    s:['Power module boxes under the floor gang circuits together. Whips plug into them with module plugs.',
-       'Electricians lift a floor tile to plug a desk in.'],
+    s:[['Power module boxes under the floor gang many circuits together. Whips connect to them with module plugs.','q177'],
+       ['An electrician lifts a floor tile and plugs the whips in underneath.','q177']],
     a:['Box size and placement at the end of each row.']},
   conduit:{t:'Feed to power modules',
     s:[],
     a:['The podcast doesn’t describe what feeds the power modules. A panel and conduit are drawn so the circuit has a source.']},
   panel:{t:'Electrical panel',
     s:[],
-    a:['A placeholder. The office electrical source isn’t described. (The data-center part of the episode covers UPS and 415 V rack power, which is a different setting.)']},
+    a:['A placeholder. The office electrical source isn’t described. (The data-center part of the episode mentions 415 V distribution to racks, a different setting.)']},
   switch:{t:'End-of-row switch enclosure',
-    s:['Each row has an end-of-row network switch in a custom enclosure.',
-       'The enclosure gets its power and its cooling from the same underfloor air system as the desks.'],
+    s:[['Network switches sit in custom enclosures at the end of each row, which supply them with power and cooling.','q177'],
+       ['The switches are cooled by the same underfloor air that cools people.','q177'],
+       ['So instead of a top-of-rack switch, it’s an end-of-row switch. Dan jokes the offices feel like data centers stretched out, with people in them.','q180']],
     a:['Cabinet size, plus a perforated tile under it to feed it air.']},
   fiber:{t:'Fiber to the row',
-    s:['Bulky copper used to run from the IDF rooms to every desk and blocked underfloor airflow. They switched to fiber to each row.',
-       'Some floor tiles have openings for fiber to the end of the row.'],
+    s:[['Copper used to run from the IDF rooms to the desks. It has a distance limit, and the bundles got big enough to block underfloor airflow.','q177'],
+       ['So they brought fiber to the end of each row instead. The fibers are small and don’t block the air.','q177'],
+       ['Some floor tiles let the fiber pass through to the end of the row.','q159']],
     a:['Route and IDF location.']},
   copper:{t:'Copper (above the floor)',
-    s:['From the end-of-row switch, copper goes to the desks and stays above the floor, in the trays behind the desks.'],
+    s:[['From the end-of-row switch, copper stays above the floor, behind the desks.','q177']],
     a:['Drawn as one bundle per tray line.']},
   idf:{t:'IDF room',
-    s:['IDF (intermediate distribution frame) rooms are where copper used to run from. Fiber now runs from here to each row.'],
+    s:[['IDF (intermediate distribution frame) rooms are where copper used to run from. Fiber now runs from the network to the end of each row.','q177']],
     a:['Room location and rack.']},
   ahu:{t:'Air handler (chilled-water coil)',
-    s:['Air handlers with chilled-water coils discharge supply air into the floor plenum at about 60–65°F.',
-       'A smaller temperature difference means moving more air and more air changes.',
-       'They mix in more outside air to keep CO₂ down: about 400 ppm outside, 750–1,200 ppm inside, with concern starting around 1,500–2,000 ppm.',
-       'MERV 16 filters. Because they move about twice the normal air volume, filters get changed about twice as often.',
-       'Sensors drive dampers that redirect air, with people overseeing.'],
+    s:[['Offices use chilled water too. Air handlers blow air over the cold coil and discharge it under the floor at 60–65°F.','q155'],
+       ['Keeping a smaller temperature difference means moving more air, so there are more air changes and more fresh air.','q188'],
+       ['MERV 16 (hospital-grade) filters clean the air at twice the normal rate, because the system moves twice the normal volume.','q188'],
+       ['CO₂ is about 400 ppm outside and 750–1,200 ppm inside. Dan starts getting nervous above 1,500–2,000.','q198'],
+       ['Sensors show CO₂ climbing and dampers redirect air, with people overseeing it rather than full automation.','q204']],
     a:['Unit size, its location in a mechanical room next to the floor, and the duct layout.']},
   oa:{t:'Outside-air intake',
-    s:['Extra outside air is brought in and stale air exhausted, mainly to control CO₂.',
-       'They tested CO₂ scrubbers, a technology borrowed from spacecraft. Scrubbers saturate and have to be regenerated with heat, use a lot of power, and need a large exhaust path. It’s unclear whether they beat simply bringing in outside air.'],
+    s:[['They bring in more outside air and exhaust stale air to dilute CO₂, and have been testing CO₂ scrubbers of the kind used on spacecraft.','q200'],
+       ['Getting much lower takes huge volumes of outside air, plus the ductwork and energy to heat or cool it. Typical systems recirculate inside air for efficiency.','q202'],
+       ['Scrubbers saturate and have to be regenerated with heat, use a lot of power, take space, and need a path to exhaust the CO₂.','q208'],
+       ['It isn’t clear yet whether scrubbers beat simply bringing in more outside air.','q210']],
     a:['Duct route and louver.']},
   pipes:{t:'Chilled water supply / return',
-    s:['Office air handlers cool air with chilled-water coils. (In the data-center discussion, air-cooled rooftop chillers make water at about 50–65°F.)'],
+    s:[['The offices use chilled water to cool the air handlers’ coils.','q155'],
+       ['In the data-center discussion, chillers (for example air-cooled ones on the roof) make water at about 50–65°F.','q14']],
     a:['Pipe size and route up to the roof.']},
   ret:{t:'Return air',
-    s:['The floors are double-height. Air rises from the desks to the breathing zone and keeps going up.'],
-    a:['The podcast doesn’t say where warm air is returned. A high return grille is drawn here.']},
+    s:[['The trading floors are double-height.','q200']],
+    a:['The podcast doesn’t say where warm air is returned, or how it travels. Air is drawn rising past the breathing zone to a high return grille.']},
   breath:{t:'Breathing zone',
-    s:['Air from a diffuser rises about 5–6 ft to the breathing zone, where people sit.','Cooling from overhead was rejected because it doesn’t land on the desk.',
-       'London once tried cooling coils in the desks. They dropped it because it didn’t work with movable desks.'],
+    s:[['Air from the floor rises about 5–6 ft and is as fresh as it can be right at the desk.','q188'],
+       ['Overhead cooling isn’t a good fit because it doesn’t land where the desk lands.','q169'],
+       ['London once piped CO₂ to coils in the desks (“kind of scary”). That can’t work with desks that move.','q161']],
     a:['Band drawn 5–6 ft above the floor.']},
-  chair:{t:'Chair',s:[],a:['Added for scale. Chairs aren’t discussed.']},
+  chair:{t:'Chair',
+    s:[['Some of the best conversations happen just spinning around in your chair to talk to the person behind or across from you.','q151']],
+    a:['The chair design. It’s here mostly for scale.']},
   trader:{t:'Trader',
-    s:['The podcast describes long rows of people sitting close together on open floors, with no private offices.'],
+    s:[['Long rows of people sitting close together on open floors, with no private offices.','q149'],
+       ['Proximity is valued: being able to stand up, walk over, and talk about the work. There are side rooms for quiet.','q150']],
     w:['A web search turned up no published Jane Street dress code.',
        'An eFinancialCareers piece calls the New York HQ at Brookfield Place low-key, the kind of place you can wear shorts.',
        'A Bloomberg poll reported by NPR found nearly half of traders and portfolio managers think shorts are fine at work.'],
     a:['Casual clothes: t-shirts, hoodies, fleeces, the odd button-down, jeans, chinos, shorts and sneakers.','Faces, builds and how many people sit on this patch of floor are all made up.'],
     act:'Clicking a trader interrupts them. They will let you know how they feel about that.'},
   wall:{t:'Double-height floor',
-    s:['Trading floors are double-height, open plan, and in total cover hundreds of thousands of square feet, with side rooms for quiet work.',
-       'Lighting changes color temperature through the day: warm in the morning, cooler at midday, warm again at the end of the day. Dan finds 2,700–3,000K easier than 4,000K.'],
+    s:[['Trading floors are large and double-height, covering hundreds of thousands of square feet.','q200'],
+       ['Lighting follows a circadian rhythm: warm in the morning, cooler around midday, warm again at the end of the day.','q182'],
+       ['Dan finds 4,000K harsh first thing in the morning; 2,700–3,000K is easier to adapt to.','q184']],
     a:['This model shows only a small corner of one floor, about 12 m × 18 m, with 7 m ceilings.']},
-  grommet:{t:'Floor pass-through',
-    s:['Some tiles have openings where the power whip and cabling come up to the desk’s cable tray.'],
-    a:['Brush-grommet style opening.']},
   bill:{t:'Money',s:[],a:['Entirely made up. The podcast is about heat, not P&L.']},
 };
 
@@ -303,6 +324,7 @@ const PLENUM = 0.36;            // ~14 in
 const SLAB_Y = -PLENUM;
 const PAIRS = [-3.6, 3.6];      // shared back line of each back-to-back pair of rows
 const DESKS_PER_ROW = 7;
+const hubs = [];   // end-of-row power hubs (filled in the power section)
 const DESK_X0 = -3.6;
 const SWITCH_X = -4.5, PMOD_X = -3.9;
 const CHAIR_Z = 0.78, SEAT_Z = 0.72;
@@ -468,7 +490,6 @@ slots.forEach((s,idx)=>{
   s.ringMat=M.diffRim.clone(); floorMats.push(s.ringMat);
   const ring=new THREE.Mesh(diffRingGeo,s.ringMat); ring.rotation.x=-Math.PI/2; ring.position.y=0.004;
   g.add(d,r,ring); tag(g,'diffuser',{slot:idx}); s.diffMesh=g; scene.add(g);
-  const gr=box(0.26,0.006,0.06,M.grommet,s.grom.x,0.002,s.grom.z,false); tag(gr,'grommet'); scene.add(gr);
 });
 
 /* ------------------------------------------------------------------ *
@@ -794,25 +815,23 @@ const netGroup=new THREE.Group(); scene.add(netGroup);
       tag(cd,'conduit'); powerGroup.add(cd);
     });
   });
-  slots.forEach(s=>{
-    const side=s.row==='A'?-1:1;
-    const z0=s.zc+side*0.3;
-    const zw=s.zc+side*(0.2+s.k*0.017);
-    const yb=SLAB_Y+0.05+(s.k%3)*0.022;
-    const pts=[V(PMOD_X+0.19,SLAB_Y+0.1,z0),V(PMOD_X+0.35,yb,zw),V(s.grom.x-0.3,yb,zw),
-      V(s.grom.x-0.04,yb+0.06,(zw+s.grom.z)/2),V(s.grom.x,-0.06,s.grom.z),V(s.grom.x,0.0,s.grom.z)];
-    const w=tube(pts,0.009,M.whip,90); tag(w,'whip'); powerGroup.add(w);
-    const riser=mesh(new THREE.CylinderGeometry(0.009,0.009,1,8),M.whip,s.grom.x,0,s.grom.z); tag(riser,'whip'); powerGroup.add(riser);
-    const plug=box(0.05,0.04,0.035,M.whip,s.grom.x,0.02,s.grom.z); tag(plug,'whip'); powerGroup.add(plug);
-    s.riser=riser; s.plug=plug;
-  });
+  // Whips run under the floor from the power module out to a hub at the end of the row, come up through it,
+  // and continue along the back of the desks in the cable tray (episode, 47:49). One hub per row.
+  PAIRS.forEach(zc=>[-1,1].forEach(side=>{
+    const z=zc+side*0.09, hx=DESK_X0-0.11;
+    const hub=box(0.08,1,0.08,M.pmod,hx,0,z); tag(hub,'hub'); powerGroup.add(hub); hubs.push(hub);
+    const tile=box(0.16,0.006,0.16,M.grommet,hx,0.002,z,false); tag(tile,'hub'); scene.add(tile);
+    for(let k=0;k<DESKS_PER_ROW;k++){
+      const o=(k-3)*0.012, yb=SLAB_Y+0.05+(k%3)*0.02;
+      const w=tube([V(PMOD_X+0.19,SLAB_Y+0.1,zc+side*0.3+o),V(PMOD_X+0.3,yb,zc+side*0.22+o),
+        V(hx-0.02,yb,z+o*0.5),V(hx,SLAB_Y+0.15,z+o*0.3),V(hx,-0.02,z)],0.009,M.whip,60);
+      tag(w,'whip'); powerGroup.add(w);
+    }
+  }));
 }
-function updateRisers(){
-  slots.forEach(s=>{
-    const on=!!s.desk&&!s.moving;
-    s.riser.visible=on; s.plug.visible=!on;
-    const top=deskH-0.13; s.riser.scale.y=top; s.riser.position.y=top/2;
-  });
+function updateRisers(){   // hubs reach up to the cable-tray height of the current desk setting
+  const top=deskH-0.13-SLAB_Y;
+  hubs.forEach(h=>{h.scale.y=top;h.position.y=SLAB_Y+top/2;});
 }
 
 /* ------------------------------------------------------------------ *
@@ -1071,7 +1090,7 @@ label('Lockable wheels','casters',V(-0.56,0.05,0.32),'',deskAt(1,'B',5).g,{lt:[-
 label('≈4 ft desk · raise/lower','desk',V(-0.3,0.02,0.4),'dim',demo.top,{lt:[0,0.7,0],off:[1.4,1.3,2.2]});
 label('Trader, dressed casual','trader',V(0.28,1.5,SEAT_Z),'ppl',deskAt(1,'B',3).g,{lt:[0.28,1.0,SEAT_Z],off:[0.5,0.5,1.5]});
 label('Power module box','pmod',V(PMOD_X,SLAB_Y+0.18,PAIRS[1]+0.3),'pw',scene,{t:[PMOD_X,SLAB_Y+0.1,PAIRS[1]+0.3],off:[1.3,1.0,1.4],floor:'lifted'});
-label('Power whips','whip',V(-0.4,SLAB_Y+0.12,PAIRS[1]+0.33),'pw',scene,{t:[-0.4,SLAB_Y+0.1,PAIRS[1]+0.3],off:[0.4,1.3,2.6],floor:'lifted'});
+label('Power whips (in the tray)','whip',V(0.15,-0.133,-0.30),'pw',deskAt(1,'B',2).top,{fn:focusTray});
 label('End-of-row switch enclosure','switch',V(SWITCH_X,1.25,PAIRS[1]),'nw',scene,{t:[SWITCH_X,0.6,PAIRS[1]],off:[2.0,0.9,1.8]});
 label('Fiber from IDF','fiber',V(-2.0,SLAB_Y+0.15,RZ0+0.2),'nw',scene,{t:[-2.0,SLAB_Y+0.12,RZ0+0.2],off:[1.0,1.1,1.9],floor:'lifted'});
 label('IDF room','idf',V(-2.0,2.0,RZ0-0.75),'nw',scene,{t:[-2.0,0.8,RZ0-0.75],off:[1.6,0.7,3.4]});
@@ -1089,11 +1108,12 @@ const infoEl=document.getElementById('info'),infoTitle=document.getElementById('
 document.getElementById('infoClose').onclick=()=>{infoEl.hidden=true;};
 const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const list=a=>`<ul>${a.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`;
+const srcList=a=>`<ul>${a.map(([x,q])=>`<li>${esc(x)} <a class="src" href="${TRANSCRIPT}#${(TS[q]||'').replace(':','')}" target="_blank" rel="noopener" title="Open this part of the transcript">${TS[q]||'source'}</a></li>`).join('')}</ul>`;
 function showInfo(key,extra=''){
   const d=INFO[key]; if(!d) return;
   infoTitle.textContent=d.t;
   let h='';
-  if(d.s.length) h+=`<div class="tagline s">From the podcast</div>${list(d.s)}`;
+  if(d.s.length) h+=`<div class="tagline s">From the podcast</div>${srcList(d.s)}`;
   if(d.w) h+=`<div class="tagline w">From a web search</div>${list(d.w)}`;
   if(d.a.length) h+=`<div class="tagline a">Assumed for this model</div>${list(d.a)}`;
   if(d.act) h+=`<div class="act">${esc(d.act)}</div>`;
