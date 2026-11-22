@@ -1178,8 +1178,13 @@ function kelvin(K){const t=K/100;let r,g,b;
   r=t<=66?255:329.698727446*Math.pow(t-60,-0.1332047592);
   g=t<=66?99.4708025861*Math.log(t)-161.1195681661:288.1221695283*Math.pow(t-60,-0.0755148492);
   b=t>=66?255:(t<=19?0:138.5177312231*Math.log(t-10)-305.0447927307);
-  const cl=v=>Math.max(0,Math.min(255,v))/255;return new THREE.Color(cl(r),cl(g),cl(b));}
-function setKelvin(K){const c=kelvin(K).lerp(new THREE.Color(1,1,1),0.35);sun.color.copy(c);hemi.color.copy(c);
+  // the formula gives sRGB values; tell three.js so, or they're read as linear and come out washed toward white
+  const cl=v=>Math.max(0,Math.min(255,v))/255;return new THREE.Color().setRGB(cl(r),cl(g),cl(b),THREE.SRGBColorSpace);}
+const FILL_C=fill.color.clone();
+function setKelvin(K){const c=kelvin(K).lerp(new THREE.Color(1,1,1),0.12);
+  // keep brightness steady so the slider changes colour, not exposure
+  const lum=0.2126*c.r+0.7152*c.g+0.0722*c.b; c.multiplyScalar(1/lum);
+  sun.color.copy(c);hemi.color.copy(c);fill.color.copy(FILL_C).multiply(c);
   kVal.textContent=`${K}K${K<=3000?' · warm':K>=3800?' · cool':''}`;}
 kIn.oninput=()=>setKelvin(+kIn.value);
 
