@@ -767,6 +767,7 @@ const desks=[];
 slots.forEach((s,i)=>{
   if(s===EMPTY) return;
   const d=makeDesk(i+1); d.g.position.set(s.cx,0,s.cz); d.g.rotation.y=s.rot; s.desk=d;
+  d.top.userData.deskRoot=d.g;   // labels on a desktop highlight / frame the whole desk
   scene.add(d.g); desks.push(d);
 });
 
@@ -1032,10 +1033,10 @@ function focusOn(o,parent,f,key){
     camTween={t:0,fp:camera.position.clone(),ft:controls.target.clone(),tp:r.pos,tt:r.target};
     focusLight.position.lerpVectors(r.pos,r.target,0.4);focusLight.intensity=2.5;highlight(key,r.hl);return;}
   let target, off=V(...f.off);
-  highlight(key,parent===scene?scene:(parent===demo.top?demo.g:parent));
+  highlight(key,parent===scene?scene:(parent.userData.deskRoot||parent));
   if(parent===scene){ target=f.t?V(...f.t):o.getWorldPosition(new THREE.Vector3()); }
   else{
-    const root=parent===demo.top?demo.g:parent;
+    const root=parent.userData.deskRoot||parent;
     target=f.lt?root.localToWorld(V(...f.lt)):o.getWorldPosition(new THREE.Vector3());
     root.getWorldQuaternion(_q); off.applyQuaternion(_q);
   }
@@ -1043,7 +1044,9 @@ function focusOn(o,parent,f,key){
   camTween={t:0,fp:camera.position.clone(),ft:controls.target.clone(),tp:target.clone().add(off),tt:target};
   focusLight.position.lerpVectors(camTween.tp,target,0.4);focusLight.intensity=off.length()<3?2.5:0;
 }
-const demo=slotOf(0,'B',4).desk;
+// desk-level labels each sit on a different desk so they spread across the floor instead of piling onto one
+const deskAt=(p,row,k)=>slotOf(p,row,k).desk;
+const demo=deskAt(0,'B',4);
 // The empty seat leaves a diffuser and a desk end exposed, so use it for those close-ups.
 function emptySpot(){
   const E=slots.find(s=>!s.desk&&!s.moving)||EMPTY;
@@ -1061,16 +1064,16 @@ label('Air handler · chilled-water coil','ahu',V(-6.9,3.45,0),'air',scene,{t:[-
 label('Underfloor plenum ≈12–16 in','plenum',V(5.5,-0.18,RZ1),'air',scene,{t:[4.0,-0.2,7.4],off:[0.8,0.15,3.2],floor:'xray'});
 label('Concrete floor tiles','floor',V(3.0,0.02,RZ1-0.3),'dim',scene,{t:[3.0,0,7.8],off:[1.2,1.6,2.2]});
 label('Rotatable diffuser','diffuser',V(EMPTY.diff.x,0.05,EMPTY.diff.z),'air',scene,{fn:focusDiffuser,solidFloor:true});
-label('PC in under-desk enclosure','pc',V(-0.38,0.62,-0.03),'warm',demo.g,{lt:[-0.38,0.35,0.1],off:[-0.12,1.1,1.95]});
-label('Cable tray (power + data)','tray',V(-0.2,-0.16,-0.32),'',demo.top,{fn:focusTray});
-label('Monitor arms','monitors',V(0,0.9,-0.36),'',demo.top,{lt:[0,1.2,-0.3],off:[0.25,0.25,1.7]});
-label('Lockable wheels','casters',V(-0.56,0.05,0.32),'',demo.g,{lt:[-0.56,0.05,0.32],off:[-0.3,0.45,1.1]});
+label('PC in under-desk enclosure','pc',V(-0.38,0.62,-0.03),'warm',deskAt(0,'B',6).g,{lt:[-0.38,0.35,0.1],off:[-0.12,1.1,1.95]});
+label('Cable tray (power + data)','tray',V(-0.2,-0.16,-0.32),'',deskAt(0,'A',2).top,{fn:focusTray});
+label('Monitor arms','monitors',V(0,0.9,-0.36),'',deskAt(1,'A',4).top,{lt:[0,1.2,-0.3],off:[0.25,0.25,1.7]});
+label('Lockable wheels','casters',V(-0.56,0.05,0.32),'',deskAt(1,'B',5).g,{lt:[-0.56,0.05,0.32],off:[-0.3,0.45,1.1]});
 label('≈4 ft desk · raise/lower','desk',V(-0.3,0.02,0.4),'dim',demo.top,{lt:[0,0.7,0],off:[1.4,1.3,2.2]});
-label('Trader, dressed casual','trader',V(0.28,1.5,SEAT_Z),'ppl',demo.g,{lt:[0.28,1.0,SEAT_Z],off:[0.5,0.5,1.5]});
+label('Trader, dressed casual','trader',V(0.28,1.5,SEAT_Z),'ppl',deskAt(1,'B',3).g,{lt:[0.28,1.0,SEAT_Z],off:[0.5,0.5,1.5]});
 label('Power module box','pmod',V(PMOD_X,SLAB_Y+0.18,PAIRS[1]+0.3),'pw',scene,{t:[PMOD_X,SLAB_Y+0.1,PAIRS[1]+0.3],off:[1.3,1.0,1.4],floor:'lifted'});
-label('Power whips','whip',V(1.6,SLAB_Y+0.12,PAIRS[1]+0.33),'pw',scene,{t:[1.6,SLAB_Y+0.1,PAIRS[1]+0.3],off:[0.4,1.3,2.6],floor:'lifted'});
+label('Power whips','whip',V(-0.4,SLAB_Y+0.12,PAIRS[1]+0.33),'pw',scene,{t:[-0.4,SLAB_Y+0.1,PAIRS[1]+0.3],off:[0.4,1.3,2.6],floor:'lifted'});
 label('End-of-row switch enclosure','switch',V(SWITCH_X,1.25,PAIRS[1]),'nw',scene,{t:[SWITCH_X,0.6,PAIRS[1]],off:[2.0,0.9,1.8]});
-label('Fiber from IDF','fiber',V(-3.4,SLAB_Y+0.15,RZ0+0.5),'nw',scene,{t:[-3.4,SLAB_Y+0.12,RZ0+0.5],off:[1.0,1.1,1.9],floor:'lifted'});
+label('Fiber from IDF','fiber',V(-2.0,SLAB_Y+0.15,RZ0+0.2),'nw',scene,{t:[-2.0,SLAB_Y+0.12,RZ0+0.2],off:[1.0,1.1,1.9],floor:'lifted'});
 label('IDF room','idf',V(-2.0,2.0,RZ0-0.75),'nw',scene,{t:[-2.0,0.8,RZ0-0.75],off:[1.6,0.7,3.4]});
 label('Copper stays above floor','copper',V(SWITCH_X+0.75,0.85,PAIRS[0]+0.12),'nw',scene,{t:[SWITCH_X+0.75,0.75,PAIRS[0]],off:[0.9,0.7,2.4]});
 label('Electrical panel (assumed)','panel',V(-5.1,2.0,RZ0+0.1),'pw',scene,{t:[-5.1,1.1,RZ0+0.1],off:[1.6,0.4,2.6]});
