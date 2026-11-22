@@ -1,0 +1,1274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Trading Floor Thermodynamics</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:rgba(18,22,30,.88); --line:rgba(255,255,255,.10);
+    --text:#e8ecf2; --muted:#9aa6b6; --accent:#5cc8ff; --warm:#ff8a3d;
+    --said:#5cc8ff; --assumed:#e0b35a; --btn:#1f2631; --btnOn:#2d3a4c; --money:#3fd28b;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font:14px/1.45 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden}
+  #app{position:fixed;inset:0}
+  #labels{position:fixed;inset:0;pointer-events:none}
+  .lbl{pointer-events:auto;cursor:pointer;font-size:11.5px;font-weight:600;letter-spacing:.01em;
+    padding:3px 7px;border-radius:5px;background:rgba(10,14,20,.78);border:1px solid rgba(255,255,255,.16);
+    color:#dfe7f1;white-space:nowrap;transform:translateY(-12px)}
+  .lbl:hover{border-color:var(--accent);color:#fff}
+  .lbl.pw{border-left:3px solid var(--warm)} .lbl.nw{border-left:3px solid #2ee6d6}
+  .lbl.air{border-left:3px solid var(--accent)} .lbl.dim{border-left:3px solid #c9d1db}
+  .lbl.ppl{border-left:3px solid #c58cff}
+  #panel{position:fixed;top:12px;left:12px;width:300px;max-height:calc(100% - 24px);overflow:auto;
+    background:var(--panel);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:12px;padding:14px 14px 10px}
+  #panel header{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+  h1{font-size:16px;margin:0 0 4px;line-height:1.25}
+  .sub{color:var(--muted);font-size:12.5px;margin:0 0 6px}
+  h2{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:12px 0 6px;font-weight:600}
+  button{font:inherit;color:var(--text);background:var(--btn);border:1px solid var(--line);border-radius:7px;
+    padding:5px 9px;cursor:pointer}
+  button:hover{border-color:rgba(255,255,255,.3)}
+  button:disabled{opacity:.45;cursor:default}
+  button.on{background:var(--btnOn);border-color:var(--accent)}
+  button.big{width:100%;padding:8px 10px;font-weight:600;margin-top:5px}
+  button.good{background:#173a29;border-color:#2f7a52;color:#d9ffe9}
+  button.good:hover:not(:disabled){border-color:var(--money)}
+  .btns{display:flex;flex-wrap:wrap;gap:5px}
+  .seg{display:flex;gap:0}
+  .seg button{border-radius:0;flex:1;font-size:12.5px;padding:5px 4px}
+  .seg button:first-child{border-radius:7px 0 0 7px} .seg button:last-child{border-radius:0 7px 7px 0}
+  label.ck{display:flex;align-items:center;gap:7px;margin:3px 0;cursor:pointer}
+  .row{display:flex;align-items:center;gap:8px} .row input[type=range]{flex:1}
+  .val{font-variant-numeric:tabular-nums;color:var(--muted);font-size:12.5px;min-width:74px;text-align:right}
+  #status{color:var(--muted);font-size:12.5px;margin:6px 0 0;min-height:18px}
+  .legend{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+  .grad{flex:1;height:8px;border-radius:4px;background:linear-gradient(90deg,#41a8ff,#ffd166,#ff6b2b)}
+  #collapse{padding:2px 8px;line-height:1}
+  #panel.min .body{display:none}
+  #info{position:fixed;right:12px;bottom:12px;width:360px;max-height:60%;overflow:auto;background:var(--panel);
+    backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  #info[hidden]{display:none}
+  #info h3{margin:0 26px 8px 0;font-size:15px}
+  #info .x{position:absolute;top:10px;right:10px;padding:1px 8px}
+  .tagline{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin:10px 0 4px}
+  .tagline.s{color:var(--said)} .tagline.a{color:var(--assumed)} .tagline.w{color:#c58cff}
+  #info ul{margin:0;padding-left:18px} #info li{margin:2px 0}
+  #info .act{margin-top:10px;font-size:12.5px;color:var(--muted)}
+  #tip{position:fixed;pointer-events:none;padding:3px 8px;border-radius:5px;background:rgba(0,0,0,.8);
+    font-size:12px;display:none;z-index:5}
+  .foot{color:var(--muted);font-size:11.5px;margin-top:12px;border-top:1px solid var(--line);padding-top:8px}
+  .foot a{color:var(--accent)}
+  @media (max-width:640px){
+    #panel{left:8px;right:8px;width:auto;top:auto;bottom:8px;max-height:52%}
+    #info{left:8px;right:8px;width:auto;top:8px;bottom:auto;max-height:42%}
+    .lbl{font-size:10px}
+  }
+</style>
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+</head>
+<body>
+<div id="app"></div>
+<div id="labels"></div>
+<div id="tip"></div>
+
+<aside id="panel">
+  <header>
+    <div>
+      <h1>Trading floor, from the slab up</h1>
+      <p class="sub">A 3D reading of <em>Signals &amp; Threads</em> ep. 24, “The Thermodynamics of Trading.” Click any object, person or label to see what the podcast said about it, and what this model had to guess.</p>
+    </div>
+    <button id="collapse" title="Collapse panel">–</button>
+  </header>
+  <div class="body">
+    <h2>Floor events</h2>
+    <button id="good" class="big good">Good trade</button>
+    <button id="shuffle" class="big">Reshuffle desks (MAC team chaos)</button>
+    <p id="status"></p>
+
+    <h2>Camera</h2>
+    <div class="btns" id="views">
+      <button data-v="overview">Overview</button>
+      <button data-v="aisle">Aisle</button>
+      <button data-v="under">Under the floor</button>
+      <button data-v="desk">At a desk</button>
+      <button data-v="endrow">End of row</button>
+      <button data-v="air">Airflow</button>
+    </div>
+
+    <h2>Raised floor tiles</h2>
+    <div class="seg" id="floorMode">
+      <button data-m="solid" class="on">In place</button>
+      <button data-m="xray">See-through</button>
+      <button data-m="lifted">Lifted out</button>
+    </div>
+
+    <h2>Show</h2>
+    <label class="ck"><input type="checkbox" id="ckAir" checked> Air path (cool → warm)</label>
+    <label class="ck"><input type="checkbox" id="ckPower" checked> Power (modules, whips)</label>
+    <label class="ck"><input type="checkbox" id="ckNet" checked> Network (fiber, copper)</label>
+    <label class="ck"><input type="checkbox" id="ckPeople" checked> Traders</label>
+    <label class="ck"><input type="checkbox" id="ckLabels" checked> Labels</label>
+    <div class="legend" style="margin-top:6px"><span>≈65°F supply</span><span class="grad"></span><span>warmed by PCs</span></div>
+
+    <h2>Desk height (raise / lower)</h2>
+    <div class="row"><input type="range" id="height" min="0.66" max="1.18" step="0.01" value="0.74"><span class="val" id="hval"></span></div>
+
+    <h2>Lighting color temperature</h2>
+    <div class="row"><input type="range" id="kelvin" min="2700" max="4000" step="50" value="3000"><span class="val" id="kval"></span></div>
+
+    <p class="foot">Drag to orbit · scroll/pinch to zoom · right-drag to pan. Click a floor diffuser to turn it, as a trader would. Source: <a href="https://signalsandthreads.com/the-thermodynamics-of-trading/" target="_blank" rel="noopener">episode transcript</a>.</p>
+  </div>
+</aside>
+
+<div id="info" hidden>
+  <button class="x" id="infoClose">×</button>
+  <h3 id="infoTitle"></h3>
+  <div id="infoBody"></div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+/* ------------------------------------------------------------------ *
+ *  What the podcast said vs. what this model assumes                 *
+ * ------------------------------------------------------------------ */
+const INFO = {
+  floor:{t:'Raised access floor',
+    s:['The trading floor sits on a raised floor roughly 12–16 inches deep.',
+       'Tiles are concrete. Some have holes for airflow, some have openings for fiber running to the end of each row.',
+       'Electricians lift tiles to get at the power modules and plug things in underneath.'],
+    a:['600 mm square tiles on steel pedestals (a common standard; not stated).','Plenum depth drawn at 14 in (0.36 m), the middle of the stated range.']},
+  plenum:{t:'Underfloor air plenum',
+    s:['The space under the floor is a pressurized, low-pressure plenum that spans the floor.',
+       'Air handlers push supply air into it at about 60–65°F, closer to 65.',
+       'Copper runs from the IDF rooms used to clog this space and block airflow, which is one reason they moved to fiber.'],
+    a:['Pedestal spacing and the exact cable routing under the floor.']},
+  diffuser:{t:'Floor diffuser (rotatable)',
+    s:['Cool air comes up through floor diffusers next to each desk.',
+       'Users turn the diffuser to adjust how much air they get.',
+       'The air reaches the PC under the desk, then rises about 5–6 ft to the breathing zone.'],
+    a:['Swirl-style round diffuser, one per desk position, placed under the PC enclosure.'],
+    act:'Click the diffuser itself (the slotted disk in the floor) to turn it: open → half → closed. Its collar turns gray, amber, then red, and the blue air rising from it thins out and stops.'},
+  pc:{t:'Under-desk PC enclosure',
+    s:['Traders’ high-power PCs sit under the desk in an enclosure.',
+       'The underfloor air reaches the PC there. This is a big part of why air comes up from the floor instead of down from the ceiling.'],
+    a:['One PC per desk, enclosure size, and hanging it from the desk frame.','The podcast gives no wattage, GPU count, or form factor.']},
+  desk:{t:'Standard trading desk',
+    s:['One desk design, metric-sized, is shipped to every office worldwide.',
+       'Each position is about 4 ft wide. Long rows, people close together, no private offices.',
+       'It has room for PCs, monitor arms, a raise/lower mechanism, a cable tray at the back for power and data, airflow perforations, and lockable wheels.',
+       'Desks used to be fixed. Moving a person meant taking apart monitors, keyboards and PCs. Wheeled desks came in before the move to the current building.'],
+    a:['1.2 m × 0.8 m top, back-to-back rows of 7, T-leg frame.','Aisle widths. The podcast gives none, so the aisles here are wide enough for a desk and chair to roll through.']},
+  monitors:{t:'Monitors on arms',
+    s:['Monitors mount on monitor arms on the desk.'],
+    a:['How many monitors and how they are arranged. The podcast doesn’t say. Four in a 2×2 grid is a guess.']},
+  tray:{t:'Cable tray (back of desk)',
+    s:['A cable tray along the back of each desk carries power and data.',
+       'The power whip comes up from the floor into it. Copper network cable stays above the floor, behind the desk.'],
+    a:['Tray depth and position.']},
+  casters:{t:'Lockable wheels',
+    s:['Desks roll on lockable wheels. A moves/adds/changes (MAC) team moves desks about every week, sometimes for hundreds of people.',
+       'Big reshuffles happen once or twice a year, including when interns arrive.'],
+    a:['Caster style. The lock tabs turn green while a desk is unlocked and rolling.','The “Reshuffle” button is deliberately chaotic. Nothing in the podcast suggests anyone gets moved mid-trade.']},
+  whip:{t:'Power whip',
+    s:['Pre-made whips, fixed or adjustable length, run under the floor from each desk position to the end-of-row hub.',
+       'The whip passes up into the cable tray behind the desk.'],
+    a:['Exact routing and how the bundle is laid out under the floor.']},
+  pmod:{t:'Power module box',
+    s:['Power module boxes under the floor gang circuits together. Whips plug into them with module plugs.',
+       'Electricians lift a floor tile to plug a desk in.'],
+    a:['Box size and placement at the end of each row.']},
+  conduit:{t:'Feed to power modules',
+    s:[],
+    a:['The podcast doesn’t describe what feeds the power modules. A panel and conduit are drawn so the circuit has a source.']},
+  panel:{t:'Electrical panel',
+    s:[],
+    a:['A placeholder. The office electrical source isn’t described. (The data-center part of the episode covers UPS and 415 V rack power, which is a different setting.)']},
+  switch:{t:'End-of-row switch enclosure',
+    s:['Each row has an end-of-row network switch in a custom enclosure.',
+       'The enclosure gets its power and its cooling from the same underfloor air system as the desks.'],
+    a:['Cabinet size, plus a perforated tile under it to feed it air.']},
+  fiber:{t:'Fiber to the row',
+    s:['Bulky copper used to run from the IDF rooms to every desk and blocked underfloor airflow. They switched to fiber to each row.',
+       'Some floor tiles have openings for fiber to the end of the row.'],
+    a:['Route and IDF location.']},
+  copper:{t:'Copper (above the floor)',
+    s:['From the end-of-row switch, copper goes to the desks and stays above the floor, in the trays behind the desks.'],
+    a:['Drawn as one bundle per tray line.']},
+  idf:{t:'IDF room',
+    s:['IDF (intermediate distribution frame) rooms are where copper used to run from. Fiber now runs from here to each row.'],
+    a:['Room location and rack.']},
+  ahu:{t:'Air handler (chilled-water coil)',
+    s:['Air handlers with chilled-water coils discharge supply air into the floor plenum at about 60–65°F.',
+       'A smaller temperature difference means moving more air and more air changes.',
+       'They mix in more outside air to keep CO₂ down: about 400 ppm outside, 750–1,200 ppm inside, with concern starting around 1,500–2,000 ppm.',
+       'MERV 16 filters. Because they move about twice the normal air volume, filters get changed about twice as often.',
+       'Sensors drive dampers that redirect air, with people overseeing.'],
+    a:['Unit size, its location in a mechanical room next to the floor, and the duct layout.']},
+  oa:{t:'Outside-air intake',
+    s:['Extra outside air is brought in and stale air exhausted, mainly to control CO₂.',
+       'They tested CO₂ scrubbers, a technology borrowed from spacecraft. Scrubbers saturate and have to be regenerated with heat, use a lot of power, and need a large exhaust path. It’s unclear whether they beat simply bringing in outside air.'],
+    a:['Duct route and louver.']},
+  pipes:{t:'Chilled water supply / return',
+    s:['Office air handlers cool air with chilled-water coils. (In the data-center discussion, air-cooled rooftop chillers make water at about 50–65°F.)'],
+    a:['Pipe size and route up to the roof.']},
+  ret:{t:'Return air',
+    s:['The floors are double-height. Air rises from the desks to the breathing zone and keeps going up.'],
+    a:['The podcast doesn’t say where warm air is returned. A high return grille is drawn here.']},
+  breath:{t:'Breathing zone',
+    s:['Air from a diffuser rises about 5–6 ft to the breathing zone, where people sit.','Cooling from overhead was rejected because it doesn’t land on the desk.',
+       'London once tried cooling coils in the desks. They dropped it because it didn’t work with movable desks.'],
+    a:['Band drawn 5–6 ft above the floor.']},
+  chair:{t:'Chair',s:[],a:['Added for scale. Chairs aren’t discussed.']},
+  trader:{t:'Trader',
+    s:['The podcast describes long rows of people sitting close together on open floors, with no private offices.'],
+    w:['A web search turned up no published Jane Street dress code.',
+       'An eFinancialCareers piece calls the New York HQ at Brookfield Place low-key, the kind of place you can wear shorts.',
+       'A Bloomberg poll reported by NPR found nearly half of traders and portfolio managers think shorts are fine at work.'],
+    a:['Casual clothes: t-shirts, hoodies, fleeces, the odd button-down, jeans, chinos, shorts and sneakers.','Faces, builds and how many people sit on this patch of floor are all made up.'],
+    act:'Clicking a trader interrupts them. They will let you know how they feel about that.'},
+  wall:{t:'Double-height floor',
+    s:['Trading floors are double-height, open plan, and in total cover hundreds of thousands of square feet, with side rooms for quiet work.',
+       'Lighting changes color temperature through the day: warm in the morning, cooler at midday, warm again at the end of the day. Dan finds 2,700–3,000K easier than 4,000K.'],
+    a:['This model shows only a small corner of one floor, about 12 m × 18 m, with 7 m ceilings.']},
+  grommet:{t:'Floor pass-through',
+    s:['Some tiles have openings where the power whip and cabling come up to the desk’s cable tray.'],
+    a:['Brush-grommet style opening.']},
+  bill:{t:'Money',s:[],a:['Entirely made up. The podcast is about heat, not P&L.']},
+};
+
+/* ------------------------------------------------------------------ *
+ *  Setup                                                              *
+ * ------------------------------------------------------------------ */
+const app = document.getElementById('app');
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+app.appendChild(renderer.domElement);
+
+const labelRenderer = new CSS2DRenderer({element:document.getElementById('labels')});
+labelRenderer.setSize(innerWidth,innerHeight);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0d1117);
+scene.fog = new THREE.Fog(0x0d1117, 36, 75);
+
+const camera = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, 0.03, 200);
+camera.position.set(12, 10, 15);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0,0.3,0);
+controls.enableDamping = true;
+controls.maxDistance = 50; controls.minDistance = 0.6;
+
+const hemi = new THREE.HemisphereLight(0xdfe8ff, 0x3a3f48, 0.75);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffffff, 1.7);
+sun.position.set(7, 15, 9);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048,2048);
+Object.assign(sun.shadow.camera,{left:-13,right:13,top:13,bottom:-13,near:1,far:45});
+sun.shadow.bias = -0.0004;
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0x9fb4d8, 0.35);
+fill.position.set(-8,3,6); scene.add(fill);
+[[0,-4],[0,4],[-4.5,0]].forEach(([x,z])=>{const l=new THREE.PointLight(0xa8c8ff,1.2,9,1.6);l.position.set(x,-0.15,z);scene.add(l);});
+
+/* ------------------------------------------------------------------ *
+ *  Dimensions                                                         *
+ * ------------------------------------------------------------------ */
+const TILE = 0.6;
+const RX0=-6, RX1=6, RZ0=-9, RZ1=9;
+const NX = 20, NZ = 30;
+const PLENUM = 0.36;            // ~14 in
+const SLAB_Y = -PLENUM;
+const PAIRS = [-3.6, 3.6];      // shared back line of each back-to-back pair of rows
+const DESKS_PER_ROW = 7;
+const DESK_X0 = -3.6;
+const SWITCH_X = -4.5, PMOD_X = -3.9;
+const CHAIR_Z = 0.78, SEAT_Z = 0.72;
+let deskH = 0.74;
+
+/* ------------------------------------------------------------------ *
+ *  Helpers / textures / materials                                     *
+ * ------------------------------------------------------------------ */
+function canvas(n,m=n){const c=document.createElement('canvas');c.width=n;c.height=m;return [c,c.getContext('2d')];}
+function tex(c,srgb=true){const t=new THREE.CanvasTexture(c); if(srgb) t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=8; return t;}
+function tag(o,key,extra){o.traverse(x=>{x.userData.key=key; if(extra) Object.assign(x.userData,extra);}); return o;}
+function std(color,o={}){return new THREE.MeshStandardMaterial({color,roughness:o.r??0.7,metalness:o.m??0.05,...o.x});}
+function mesh(geo,mat,x=0,y=0,z=0,shadow=true){const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.castShadow=shadow;m.receiveShadow=true;return m;}
+function box(w,h,d,mat,x,y,z,shadow){return mesh(new THREE.BoxGeometry(w,h,d),mat,x,y,z,shadow);}
+function tube(points,r,mat,seg=64){const c=new THREE.CatmullRomCurve3(points,false,'centripetal');const m=new THREE.Mesh(new THREE.TubeGeometry(c,seg,r,8,false),mat);m.castShadow=true;return m;}
+function cylBetween(a,b,r,mat){const d=new THREE.Vector3().subVectors(b,a);const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,1,10),mat);
+  m.position.copy(a).addScaledVector(d,0.5);m.scale.y=d.length();m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.clone().normalize());m.castShadow=true;return m;}
+const V=(x,y,z)=>new THREE.Vector3(x,y,z);
+const rnd=(a=1)=>(Math.random()*2-1)*a;
+const pickR=a=>a[Math.floor(Math.random()*a.length)];
+
+const tileTexMap = (()=>{const [c,g]=canvas(256);g.fillStyle='#cfcac0';g.fillRect(0,0,256,256);
+  for(let i=0;i<3000;i++){const v=170+Math.random()*60|0;g.fillStyle=`rgba(${v},${v-3},${v-9},.35)`;g.fillRect(Math.random()*256,Math.random()*256,2,2);}
+  g.strokeStyle='#8e897f';g.lineWidth=5;g.strokeRect(2.5,2.5,251,251);return tex(c);})();
+const perfAlpha = (()=>{const [c,g]=canvas(256);g.fillStyle='#fff';g.fillRect(0,0,256,256);g.fillStyle='#000';
+  for(let i=0;i<11;i++)for(let j=0;j<11;j++){g.beginPath();g.arc(28+i*20,28+j*20,6.5,0,7);g.fill();}return tex(c,false);})();
+const holeAlpha = (()=>{const [c,g]=canvas(256);g.fillStyle='#fff';g.fillRect(0,0,256,256);g.fillStyle='#000';g.beginPath();g.arc(128,128,86,0,7);g.fill();return tex(c,false);})();
+const diffAlpha = (()=>{const [c,g]=canvas(256);g.fillStyle='#000';g.fillRect(0,0,256,256);g.fillStyle='#fff';g.beginPath();g.arc(128,128,127,0,7);g.fill();
+  g.strokeStyle='#000';g.lineWidth=8;g.lineCap='round';
+  for(let a=0;a<18;a++){g.beginPath();for(let r=30;r<=114;r+=4){const th=a*Math.PI*2/18+(r-30)/84*1.0;const x=128+Math.cos(th)*r,y=128+Math.sin(th)*r;r===30?g.moveTo(x,y):g.lineTo(x,y);}g.stroke();}
+  return tex(c,false);})();
+const perfDark = (()=>{const [c,g]=canvas(128);g.fillStyle='#343a43';g.fillRect(0,0,128,128);g.fillStyle='#14171b';
+  for(let i=0;i<16;i++)for(let j=0;j<16;j++){g.beginPath();g.arc(4+i*8,4+j*8,2.4,0,7);g.fill();}const t=tex(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;return t;})();
+function screenTex(seed){const [c,g]=canvas(256,150);g.fillStyle='#0a0f16';g.fillRect(0,0,256,150);
+  const r=(()=>{let s=seed*9301+49297;return()=>((s=(s*9301+49297)%233280)/233280);})();
+  if(seed%3===0){
+    g.strokeStyle='#2a3646';for(let y=20;y<150;y+=26){g.beginPath();g.moveTo(0,y);g.lineTo(256,y);g.stroke();}
+    ['#3fd28b','#5cc8ff','#ffb547'].forEach((col,k)=>{g.strokeStyle=col;g.lineWidth=2;g.beginPath();let y=50+k*30;
+      for(let x=0;x<256;x+=4){y+=(r()-.5)*8;g.lineTo(x,y);}g.stroke();});
+  }else{
+    g.font='10px monospace';
+    for(let row=0;row<12;row++){for(let k=0;k<5;k++){const up=r()>.5;g.fillStyle=k===0?'#8fa3bb':(up?'#3fd28b':'#ff6b6b');
+      g.fillText((k===0?['ABC','XYZ','QRS','LMN','DEF','JKL'][row%6]:(r()*999).toFixed(2)),6+k*50,14+row*11.5);}}
+  }
+  g.fillStyle='#1b2533';g.fillRect(0,0,256,4);return tex(c);}
+const screens=[0,1,2,3,4,5].map(screenTex);
+
+const M = {
+  slab: std(0x4d5156,{r:.95}),
+  tile: std(0xffffff,{r:.85,x:{map:tileTexMap}}),
+  perf: std(0xffffff,{r:.85,x:{map:tileTexMap,alphaMap:perfAlpha,alphaTest:.5,side:THREE.DoubleSide}}),
+  holeTile: std(0xffffff,{r:.85,x:{map:tileTexMap,alphaMap:holeAlpha,alphaTest:.5}}),
+  diffuser: std(0x9aa3ad,{r:.4,m:.6,x:{alphaMap:diffAlpha,alphaTest:.5,side:THREE.DoubleSide}}),
+  diffRim: std(0x6f7782,{r:.4,m:.7}),
+  grommet: std(0x15171a,{r:.9}),
+  pedestal: std(0x8d939b,{r:.45,m:.7}),
+  deskTop: std(0xe9e5dd,{r:.55}),
+  edge: std(0x3b4149,{r:.5}),
+  frame: std(0x262a31,{r:.45,m:.6}),
+  column: std(0xa9b0b9,{r:.3,m:.8}),
+  enclosure: std(0xffffff,{r:.6,m:.3,x:{map:perfDark}}),
+  monitor: std(0x16181c,{r:.4,m:.3}),
+  armMat: std(0x2a2e35,{r:.35,m:.7}),
+  kbd: std(0x2d3139,{r:.6}),
+  chair: std(0x2a2d33,{r:.8}),
+  chairSeat: std(0x3b4150,{r:.9}),
+  wheel: std(0x111214,{r:.6}),
+  lockOn: std(0xd6453d,{r:.5,x:{emissive:0x5a1010}}),
+  lockOff: std(0x3fd28b,{r:.5,x:{emissive:0x0f5a33}}),
+  whip: std(0xff8a2a,{r:.45,x:{emissive:0x5a2400}}),
+  pmod: std(0x6a5a48,{r:.5,m:.5}),
+  recept: std(0x111111,{r:.7}),
+  conduit: std(0x9aa1a9,{r:.35,m:.8}),
+  copper: std(0x3b82f6,{r:.5,x:{emissive:0x0b2350}}),
+  fiber: std(0x2ee6d6,{r:.4,x:{emissive:0x0b6e66}}),
+  sw: std(0xffffff,{r:.55,m:.4,x:{map:perfDark}}),
+  rack: std(0x1f242b,{r:.5,m:.5}),
+  wall: new THREE.MeshStandardMaterial({color:0x8b94a3,transparent:true,opacity:.10,depthWrite:false,side:THREE.DoubleSide}),
+  wallEdge: new THREE.LineBasicMaterial({color:0x5f6b7c}),
+  ahu: std(0x7c8592,{r:.5,m:.5}),
+  ahuPanel: std(0x5e6672,{r:.5,m:.5}),
+  coil: std(0xb88b5a,{r:.35,m:.8}),
+  pipeBlue: std(0x2f7fe0,{r:.35,m:.4}),
+  pipeRed: std(0xd2493b,{r:.35,m:.4}),
+  duct: std(0xa8b0ba,{r:.35,m:.75}),
+  grille: std(0xffffff,{r:.6,m:.4,x:{map:perfDark}}),
+  led: new THREE.MeshBasicMaterial({color:0x3fd28b}),
+  ledBlue: new THREE.MeshBasicMaterial({color:0x5cc8ff}),
+  exhaust: new THREE.MeshBasicMaterial({color:0xff7a2f,transparent:true,opacity:.35,depthWrite:false}),
+  breath: new THREE.MeshBasicMaterial({color:0x5cc8ff,transparent:true,opacity:.06,depthWrite:false,side:THREE.DoubleSide}),
+};
+const floorMats = [M.tile,M.perf,M.holeTile,M.diffuser,M.diffRim,M.grommet];
+
+/* ------------------------------------------------------------------ *
+ *  Slab, pedestals, tiles                                             *
+ * ------------------------------------------------------------------ */
+const slab = box(16.6, 0.25, (RZ1-RZ0)+1.6, M.slab, -1.3, SLAB_Y-0.125, (RZ0-1.6+RZ1)/2, false);
+slab.receiveShadow = true; tag(slab,'plenum'); scene.add(slab);
+
+{
+  const pg = new THREE.CylinderGeometry(0.016,0.016,PLENUM-0.04,8);
+  const hg = new THREE.BoxGeometry(0.09,0.008,0.09);
+  const n=(NX+1)*(NZ+1);
+  const pi = new THREE.InstancedMesh(pg,M.pedestal,n), hi = new THREE.InstancedMesh(hg,M.pedestal,n*2);
+  const m4=new THREE.Matrix4(); let k=0;
+  for(let i=0;i<=NX;i++)for(let j=0;j<=NZ;j++){const x=RX0+i*TILE,z=RZ0+j*TILE;
+    m4.makeTranslation(x,SLAB_Y+(PLENUM-0.04)/2,z);pi.setMatrixAt(k,m4);
+    m4.makeTranslation(x,-0.039,z);hi.setMatrixAt(2*k,m4);m4.makeTranslation(x,SLAB_Y+0.004,z);hi.setMatrixAt(2*k+1,m4);k++;}
+  pi.castShadow=true;tag(pi,'floor');tag(hi,'floor');scene.add(pi,hi);
+}
+
+const tileType = {};
+const tIdx = (x,z)=>[Math.floor((x-RX0)/TILE),Math.floor((z-RZ0)/TILE)];
+const tCenter = (i,j)=>[RX0+TILE*(i+.5),RZ0+TILE*(j+.5)];
+
+/* ------------------------------------------------------------------ *
+ *  Slots (desk positions)                                             *
+ * ------------------------------------------------------------------ */
+const slots=[];
+PAIRS.forEach((zc,p)=>{
+  ['A','B'].forEach(row=>{
+    for(let k=0;k<DESKS_PER_ROW;k++){
+      const x0=DESK_X0+1.2*k, A=row==='A';
+      slots.push({p,row,k,zc,x0,key:p+row,
+        cx:x0+.6, cz:A?zc-.4:zc+.4, rot:A?Math.PI:0,
+        pc:V(A?x0+.98:x0+.22,0,A?zc-.37:zc+.37),
+        diff:V(A?x0+.9:x0+.3,0,A?zc-.3:zc+.3),
+        grom:V(A?x0+.3:x0+.9,0,A?zc-.08:zc+.08),
+        back:A?1:-1, desk:null, flow:1, moving:false});
+    }
+  });
+});
+const slotOf=(p,row,k)=>slots.find(s=>s.p===p&&s.row===row&&s.k===k);
+const rowSlots=(p,row)=>slots.filter(s=>s.p===p&&s.row===row);
+const EMPTY = slotOf(1,'A',6);
+
+slots.forEach(s=>{const [i,j]=tIdx(s.diff.x,s.diff.z);tileType[i+','+j]='hole';});
+PAIRS.forEach(zc=>{[-0.3,0.3].forEach(dz=>{const [i,j]=tIdx(SWITCH_X,zc+dz);tileType[i+','+j]='perf';});});
+
+let tiles;
+{
+  const tg = new THREE.BoxGeometry(TILE-0.006,0.035,TILE-0.006);
+  const lists={solid:[],perf:[],hole:[]};
+  for(let i=0;i<NX;i++)for(let j=0;j<NZ;j++){const t=tileType[i+','+j]||'solid';lists[t].push([i,j]);}
+  const m4=new THREE.Matrix4();
+  const mk=(list,mat)=>{const im=new THREE.InstancedMesh(tg,mat,list.length);list.forEach(([i,j],n)=>{const [x,z]=tCenter(i,j);m4.makeTranslation(x,-0.0175,z);im.setMatrixAt(n,m4);});
+    im.receiveShadow=true;im.castShadow=true;tag(im,'floor');scene.add(im);return im;};
+  tiles=[mk(lists.solid,M.tile),mk(lists.perf,M.perf),mk(lists.hole,M.holeTile)];
+}
+
+const diffGeo=new THREE.CircleGeometry(0.2,48); const rimGeo=new THREE.CylinderGeometry(0.205,0.205,0.03,48,1,true);
+const diffRingGeo=new THREE.RingGeometry(0.198,0.228,48);
+slots.forEach((s,idx)=>{
+  const g=new THREE.Group(); g.position.set(s.diff.x,0,s.diff.z);
+  // The face sits just ABOVE the tile top (y=0). The tile's round hole is only an alpha texture,
+  // so anything below the tile surface loses every click to the tile.
+  const d=new THREE.Mesh(diffGeo,M.diffuser); d.rotation.x=-Math.PI/2; d.position.y=0.003; d.receiveShadow=true;
+  const r=new THREE.Mesh(rimGeo,M.diffRim); r.position.y=-0.012;
+  // flat collar whose color shows the damper setting: gray open, amber half, red closed
+  s.ringMat=M.diffRim.clone(); floorMats.push(s.ringMat);
+  const ring=new THREE.Mesh(diffRingGeo,s.ringMat); ring.rotation.x=-Math.PI/2; ring.position.y=0.004;
+  g.add(d,r,ring); tag(g,'diffuser',{slot:idx}); s.diffMesh=g; scene.add(g);
+  const gr=box(0.26,0.006,0.06,M.grommet,s.grom.x,0.002,s.grom.z,false); tag(gr,'grommet'); scene.add(gr);
+});
+
+/* ------------------------------------------------------------------ *
+ *  Room shell                                                         *
+ * ------------------------------------------------------------------ */
+const ROOM_H=7;
+{
+  const back=new THREE.Mesh(new THREE.PlaneGeometry(RX1-RX0,ROOM_H),M.wall); back.position.set(0,ROOM_H/2,RZ0); tag(back,'wall');
+  const left=new THREE.Mesh(new THREE.PlaneGeometry(RZ1-RZ0,ROOM_H),M.wall); left.rotation.y=Math.PI/2; left.position.set(RX0,ROOM_H/2,0); tag(left,'wall');
+  scene.add(back,left);
+  const pts=[[RX0,0,RZ1],[RX0,0,RZ0],[RX1,0,RZ0],[RX1,ROOM_H,RZ0],[RX0,ROOM_H,RZ0],[RX0,ROOM_H,RZ1],[RX0,0,RZ1],[RX0,0,RZ0],[RX0,ROOM_H,RZ0]].map(p=>V(...p));
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),M.wallEdge));
+  const trim=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(RX1-RX0,PLENUM,RZ1-RZ0)),new THREE.LineBasicMaterial({color:0x3a4250}));
+  trim.position.set(0,-PLENUM/2,0);scene.add(trim);
+}
+
+/* ------------------------------------------------------------------ *
+ *  People                                                             *
+ * ------------------------------------------------------------------ */
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const matCache={}; const matC=(hex,r=.8)=>matCache[hex+r]||(matCache[hex+r]=std(hex,{r}));
+const geoCache={}; const capG=(r,l)=>geoCache['c'+r+l]||(geoCache['c'+r+l]=new THREE.CapsuleGeometry(r,l,4,10));
+const sphG=(r)=>geoCache['s'+r]||(geoCache['s'+r]=new THREE.SphereGeometry(r,18,12));
+const hairCapG=new THREE.SphereGeometry(0.113,22,12,0,Math.PI*2,0,Math.PI*0.52);
+const collarG=new THREE.TorusGeometry(0.075,0.024,8,18);
+const glassG=new THREE.TorusGeometry(0.022,0.0045,6,16);
+const SKIN=['#f3d6c1','#e8bc98','#d19a6e','#b57a50','#8d5a3b','#6b4029','#4a2c1c'];
+const HAIR=['#16110e','#2e1f16','#4b3020','#7a5230','#b08850','#d6bd86','#8c3b20','#9a9a9a','#16110e','#2e1f16'];
+const SHIRTS=['#2f4a6d','#7a2f3a','#3f6b4a','#d8d4cc','#1e1f24','#5b5f68','#c76b2c','#365f8c','#8a7bb3','#efe9dd','#2c6e6a','#a33a3a','#d9b23f'];
+const SHOES=['#f2f2f2','#f2f2f2','#1a1a1a','#8a8f99','#c44a3a','#3a6fd8'];
+const peopleGroup=[];
+
+function makePerson(seed){
+  const R=mulberry(seed*7919+13), pick=a=>a[Math.floor(R()*a.length)];
+  const fem=R()<.5;
+  const skin=matC(pick(SKIN)); const hairM=matC(pick(HAIR),.9);
+  const hairStyle=fem?pick(['long','pony','bun','curly','long','bob']):pick(['short','buzz','bald','curly','short','short']);
+  const top=pick(['tee','tee','tee','hoodie','hoodie','fleece','vest','button']);
+  const bottom=pick(['jeans','jeans','chinos','shorts','jeans','shorts']);
+  const shirt=matC(top==='button'?pick(['#dfe8f3','#f4f4f0','#b9cde6']):pick(SHIRTS));
+  const vest=matC(pick(['#1f2a3a','#3b3f46','#2f4a3a','#4a3a2a']));
+  const under=matC(pick(['#dfe8f3','#f4f4f0','#c9d3dd','#e8e2d6']));
+  const pants=matC(bottom==='jeans'?pick(['#2b3b5c','#1f2a40','#3a4a6a','#202630']):bottom==='chinos'?pick(['#b9a27e','#5a4e3c','#6b7280']):pick(['#3a4a6a','#b9a27e','#2f3e2f','#555a60']));
+  const shoe=matC(pick(SHOES));
+  const sw=fem?.32+R()*.04:.37+R()*.06;
+  const torsoM= top==='vest'?vest:shirt;
+  const armM = top==='vest'?under: top==='tee'?skin:shirt;
+  const dark=matC('#15171b'); const lip=matC('#6a2e2e');
+
+  const root=new THREE.Group(); const pelvis=new THREE.Group(); root.add(pelvis);
+  const add=(parent,geo,mat,x,y,z,shadow=true)=>{const m=mesh(geo,mat,x,y,z,shadow);parent.add(m);return m;};
+  add(pelvis,new THREE.BoxGeometry(sw-.04,.14,.24),pants,0,0,0);
+  const torso=new THREE.Group(); torso.position.y=.05; pelvis.add(torso);
+  const chest=add(torso,capG(.12,.28),torsoM,0,.27,0); chest.scale.set(sw/.24,1,.8);
+  add(torso,new THREE.CylinderGeometry(.045,.05,.1,10),skin,0,.57,0);
+  if(top==='hoodie'){const h=add(torso,sphG(.12),shirt,0,.53,.1);h.scale.set(1.25,.5,.85);
+    add(torso,new THREE.BoxGeometry(.008,.12,.008),matC('#eeeeee'),-.035,.42,-.1,false);add(torso,new THREE.BoxGeometry(.008,.12,.008),matC('#eeeeee'),.035,.42,-.1,false);}
+  if(top==='fleece'||top==='button'||top==='vest'){const c=add(torso,collarG,top==='vest'?vest:shirt,0,.53,0);c.rotation.x=Math.PI/2;
+    add(torso,new THREE.BoxGeometry(.008,.42,.006),top==='button'?matC('#9aa6b6'):dark,0,.29,-.098,false);}
+  const head=new THREE.Group(); head.position.y=.6; torso.add(head);
+  const hd=add(head,sphG(.105),skin,0,.1,0); hd.scale.set(.95,1.12,1);
+  [-1,1].forEach(s=>{add(head,sphG(.014),dark,s*.036,.12,-.093,false);});
+  add(head,sphG(.017),skin,0,.09,-.105,false);
+  const brows=new THREE.Group(); brows.position.y=.158; head.add(brows);
+  [-1,1].forEach(s=>{add(brows,new THREE.BoxGeometry(.04,.008,.01),hairM,s*.036,0,-.098,false);});
+  const mouth=add(head,new THREE.BoxGeometry(.045,.012,.012),lip,0,.045,-.097,false);
+  // hair
+  const cap=()=>{const c=add(head,hairCapG,hairM,0,.1,0);c.scale.set(1,1.12,1.03);c.rotation.x=.35;return c;};
+  if(hairStyle==='short'){cap().scale.set(1.02,1.18,1.05);}
+  if(hairStyle==='buzz'){const c=cap();c.scale.set(.985,1.11,1.01);}
+  if(hairStyle==='long'){cap();add(head,new THREE.BoxGeometry(.21,.34,.07),hairM,0,0,.075);
+    [-1,1].forEach(s=>add(head,new THREE.BoxGeometry(.035,.24,.12),hairM,s*.1,.02,.01));}
+  if(hairStyle==='bob'){cap();add(head,new THREE.BoxGeometry(.21,.17,.07),hairM,0,.05,.075);
+    [-1,1].forEach(s=>add(head,new THREE.BoxGeometry(.035,.14,.13),hairM,s*.1,.06,.01));}
+  if(hairStyle==='pony'){cap();const p=add(head,capG(.035,.16),hairM,0,.02,.14);p.rotation.x=.35;}
+  if(hairStyle==='bun'){cap();add(head,sphG(.055),hairM,0,.2,.08);}
+  if(hairStyle==='curly'){const c=add(head,sphG(.14),hairM,0,.17,.05);c.scale.set(1.05,.95,1);}
+  if(!fem&&R()<.35){const b=add(head,sphG(.085),hairM,0,-.005,-.03);b.scale.set(1.05,.75,.85);}
+  if(R()<.3){[-1,1].forEach(s=>add(head,glassG,dark,s*.037,.12,-.11,false));add(head,new THREE.BoxGeometry(.025,.004,.004),dark,0,.12,-.11,false);}
+  // arms
+  const arm=s=>{
+    const sh=new THREE.Group(); sh.position.set(s*(sw/2+.015),.47,0); torso.add(sh);
+    add(sh,capG(.046,.2),armM,0,-.15,0);
+    if(top==='tee') add(sh,capG(.056,.06),shirt,0,-.05,0);
+    const el=new THREE.Group(); el.position.y=-.3; sh.add(el);
+    add(el,capG(.04,.17),top==='tee'?skin:armM,0,-.13,0);
+    add(el,sphG(.042),skin,0,-.29,0);
+    return [sh,el];
+  };
+  const [lSh,lEl]=arm(-1),[rSh,rEl]=arm(1);
+  const leg=s=>{
+    const hip=new THREE.Group(); hip.position.set(s*.09,-.02,0); pelvis.add(hip);
+    add(hip,capG(.068,.3),pants,0,-.22,0);
+    const kn=new THREE.Group(); kn.position.y=-.45; hip.add(kn);
+    add(kn,capG(.055,.3),bottom==='shorts'?skin:pants,0,-.2,0);
+    if(bottom==='shorts'){const c=add(hip,capG(.074,.12),pants,0,-.32,0);}
+    add(kn,new THREE.BoxGeometry(.1,.07,.25),shoe,0,-.43,-.06);
+    return [hip,kn];
+  };
+  const [lHip,lKn]=leg(-1),[rHip,rKn]=leg(1);
+  const sc=fem?.93+R()*.07:.97+R()*.07; root.scale.setScalar(sc);
+  const P={root,J:{pelvis,torso,head,lSh,lEl,rSh,rEl,lHip,lKn,rHip,rKn,mouth,brows},
+    C:null,ph:R()*6.28,mode:'base',surpriseUntil:-1,sStyle:'head',danceFrom:Infinity,danceUntil:-1,dStyle:'disco',chair:null};
+  tag(root,'trader',{person:P});
+  peopleGroup.push(P);
+  return P;
+}
+const POSE_KEYS=['ry','rz','py','torsoX','torsoY','torsoZ','headX','headY','headZ','lShX','lShY','lShZ','lElX','lElZ','rShX','rShY','rShZ','rElX','rElZ','lHipX','lHipZ','lKneeX','rHipX','rHipZ','rKneeX','mx','my','brow','chairZ'];
+function blankPose(){const T={};POSE_KEYS.forEach(k=>T[k]=0);T.mx=1;T.my=1;return T;}
+function poseTarget(P,t){
+  const T=blankPose(), ph=P.ph, S=Math.sin;
+  let mode='base';
+  if(t<P.surpriseUntil) mode='surprise'; else if(t>=P.danceFrom&&t<P.danceUntil) mode='dance';
+  P.mode=mode;
+  if(mode==='dance'){
+    const b=.12+.12*Math.abs(S(t*4.2+ph));
+    T.ry=Math.PI+.25*S(t*2+ph); T.rz=.62;
+    T.lHipX=T.rHipX=b; T.lKneeX=T.rKneeX=-2*b; T.py=.95-.45*(1-Math.cos(b))*2;
+    T.mx=1.5;T.my=1.4;T.brow=.006;
+    const st=P.dStyle;
+    if(st==='disco'){const s=S(t*4+ph);T.rShX=.3;T.rShZ=1.6+1.0*s;T.lShZ=-.3;T.lShX=.4;T.lElX=1.5;T.torsoZ=.15*s;T.headZ=.1*s;}
+    else if(st==='roof'){const p=S(t*8+ph);T.lShZ=-(2.2+.25*p);T.rShZ=2.2+.25*p;T.lElZ=-.9;T.rElZ=.9;T.headX=.1*p;}
+    else if(st==='wave'){const s=S(t*2.5+ph);T.lShZ=-2.85+.35*s;T.rShZ=2.85+.35*s;T.torsoZ=.18*s;T.headZ=.12*s;}
+    else if(st==='twist'){const s=S(t*6+ph);T.ry+=.45*s;T.torsoY=-.5*s;T.lShX=T.rShX=.5;T.lElX=T.rElX=1.6;T.lShZ=-.3;T.rShZ=.3;}
+    else {const st2=Math.sign(S(t*3+ph));T.lShZ=-1.57;T.rShZ=1.57;T.lElZ=-1.57*st2;T.rElZ=1.57*st2;T.headY=.5*st2;}
+    return T;
+  }
+  const standing=deskH>1.0;
+  if(standing){T.py=.95;T.rz=-.05;T.chairZ=.45;T.lHipZ=-.04;T.rHipZ=.04;}
+  else{T.py=.52;T.lHipX=T.rHipX=1.57;T.lKneeX=T.rKneeX=-1.57;T.lHipZ=-.08;T.rHipZ=.08;T.torsoX=-.06;}
+  if(mode==='surprise'){
+    T.mx=.55;T.my=2.6;T.brow=.016;
+    const st=P.sStyle;
+    if(st==='head'){T.lShX=T.rShX=.25;T.lShZ=-2.5;T.rShZ=2.5;T.lElZ=-2.2;T.rElZ=2.2;T.headX=.15;T.headY=.3*S(t*7);T.torsoX=.05;}
+    else if(st==='why'){const b=.12*S(t*5);T.lShX=T.rShX=.35+b;T.lShY=.7;T.rShY=-.7;T.lShZ=-.3;T.rShZ=.3;T.lElX=T.rElX=1.5;T.headZ=.25*S(t*2);T.torsoX=.08;}
+    else if(st==='flail'){T.lShZ=-2.8+.4*S(t*11);T.rShZ=2.8+.4*S(t*11+1.7);T.lElX=T.rElX=.3;T.headY=.4*S(t*6);T.torsoZ=.12*S(t*6);}
+    else if(st==='palm'){T.rShX=.9;T.rShY=-.35;T.rElX=2.3;T.lShX=.35;T.lElX=.7;T.headX=-.3;T.headY=.1*S(t*3);T.torsoX=-.15;T.mx=1;T.my=1;}
+    else if(st==='cling'){T.lShX=T.rShX=1.25;T.lElX=T.rElX=.15;T.lShZ=.1;T.rShZ=-.1;T.torsoX=-.25;T.headX=.2;}
+    else if(st==='hello'){T.rShZ=2.6;T.rElZ=.5*S(t*10);T.lShX=.5;T.lElX=1.0;T.mx=1.5;T.my=1.4;T.brow=.006;T.headY=-.3;}
+    return T;
+  }
+  // typing (seated or standing)
+  T.headX=-.05+.03*S(t*.7+ph); T.headY=.18*S(t*.35+ph);
+  T.lShX=T.rShX=standing?.45:.55; T.lShZ=.12; T.rShZ=-.12;
+  const e=standing?.95:1.05;
+  T.lElX=e+.06*S(t*11+ph); T.rElX=e+.06*S(t*13+ph*2);
+  return T;
+}
+function updatePerson(P,t,dt){
+  const T=poseTarget(P,t);
+  if(!P.C) P.C={...T};
+  const k=Math.min(1,dt*(P.mode==='dance'&&P.dStyle==='robot'?14:8));
+  for(const key of POSE_KEYS) P.C[key]+=(T[key]-P.C[key])*k;
+  const C=P.C,J=P.J;
+  P.root.rotation.y=C.ry; P.root.position.z=SEAT_Z+C.rz;
+  J.pelvis.position.y=C.py;
+  J.torso.rotation.set(C.torsoX,C.torsoY,C.torsoZ);
+  J.head.rotation.set(C.headX,C.headY,C.headZ);
+  J.lSh.rotation.set(C.lShX,C.lShY,C.lShZ); J.lEl.rotation.set(C.lElX,0,C.lElZ);
+  J.rSh.rotation.set(C.rShX,C.rShY,C.rShZ); J.rEl.rotation.set(C.rElX,0,C.rElZ);
+  J.lHip.rotation.set(C.lHipX,0,C.lHipZ); J.lKn.rotation.x=C.lKneeX;
+  J.rHip.rotation.set(C.rHipX,0,C.rHipZ); J.rKn.rotation.x=C.rKneeX;
+  J.mouth.scale.set(C.mx,C.my,1); J.brows.position.y=.158+C.brow;
+  if(P.chair) P.chair.position.z=CHAIR_Z+C.chairZ;
+}
+
+/* ------------------------------------------------------------------ *
+ *  Desk factory                                                       *
+ * ------------------------------------------------------------------ */
+const unitBox=new THREE.BoxGeometry(1,1,1);
+const wheelGeo=new THREE.CylinderGeometry(0.032,0.032,0.025,16); wheelGeo.rotateZ(Math.PI/2);
+let screenN=0;
+function makeDesk(seed){
+  const g=new THREE.Group();
+  const base=new THREE.Group(); g.add(base);
+  const lockTabs=[];
+  [-0.56,0.56].forEach(x=>{
+    const foot=box(0.06,0.04,0.72,M.frame,x,0.085,0); tag(foot,'desk'); base.add(foot);
+    [-0.32,0.32].forEach(z=>{
+      const w=mesh(wheelGeo,M.wheel,x,0.034,z); const fork=box(0.035,0.04,0.03,M.frame,x,0.06,z);
+      const tab=box(0.018,0.012,0.04,M.lockOn,x+0.028*Math.sign(x),0.05,z+0.02); lockTabs.push(tab);
+      const c=new THREE.Group(); c.add(w,fork,tab); tag(c,'casters'); base.add(c);
+    });
+    const col=box(0.075,0.4,0.075,M.frame,x,0.305,0); tag(col,'desk'); base.add(col);
+  });
+  const upper=[-0.56,0.56].map(x=>{const m=mesh(unitBox,M.column,x,0,0);m.scale.set(0.058,1,0.058);tag(m,'desk');base.add(m);return m;});
+  const enc=new THREE.Group();
+  enc.add(box(0.26,0.46,0.6,M.enclosure,0,0,0));
+  enc.add(box(0.012,0.12,0.004,M.led,0.08,0.12,0.302,false));
+  const ex=new THREE.Mesh(new THREE.PlaneGeometry(0.22,0.4),M.exhaust); ex.position.set(0,0,-0.302); ex.rotation.y=Math.PI; enc.add(ex);
+  enc.add(box(0.05,0.03,0.08,M.frame,-0.15,0.15,0));
+  enc.position.set(-0.38,0.37,-0.03); tag(enc,'pc'); base.add(enc);
+  const ch=new THREE.Group();
+  ch.add(box(0.48,0.07,0.46,M.chairSeat,0,0.47,0));
+  ch.add(box(0.46,0.52,0.06,M.chairSeat,0,0.8,0.24));
+  ch.add(mesh(new THREE.CylinderGeometry(0.025,0.025,0.36,8),M.chair,0,0.27,0));
+  for(let a=0;a<5;a++){const leg=box(0.32,0.03,0.04,M.chair,0,0.07,0);leg.rotation.y=a*Math.PI*2/5;leg.position.set(Math.cos(a*1.2566)*0.15,0.07,-Math.sin(a*1.2566)*0.15);ch.add(leg);}
+  ch.position.set(0.28,0,CHAIR_Z); tag(ch,'chair'); base.add(ch);
+
+  const top=new THREE.Group(); g.add(top);
+  const dt=box(1.2,0.03,0.8,M.deskTop,0,-0.015,0); tag(dt,'desk'); top.add(dt);
+  const lip=box(1.2,0.031,0.012,M.edge,0,-0.015,0.4); tag(lip,'desk'); top.add(lip);
+  const beam=box(1.08,0.05,0.06,M.frame,0,-0.055,0); tag(beam,'desk'); top.add(beam);
+  const gr=box(1.0,0.003,0.05,M.grille,0,0.0015,-0.36,false); tag(gr,'desk'); top.add(gr);
+  const tray=new THREE.Group();
+  tray.add(box(1.1,0.008,0.12,M.frame,0,-0.15,-0.32),box(1.1,0.08,0.008,M.frame,0,-0.11,-0.26),box(1.1,0.08,0.008,M.frame,0,-0.11,-0.38));
+  tag(tray,'tray'); top.add(tray);
+  const cop=box(1.1,0.025,0.03,M.copper,0,-0.13,-0.35,false); tag(cop,'copper'); top.add(cop); cop.userData.net=true;
+  const pw=box(1.1,0.022,0.022,M.whip,0,-0.133,-0.30,false); tag(pw,'whip'); top.add(pw); pw.userData.power=true;
+  const mons=new THREE.Group();
+  mons.add(mesh(new THREE.CylinderGeometry(0.022,0.022,0.86,10),M.armMat,0,0.43,-0.36));
+  mons.add(box(0.1,0.02,0.08,M.armMat,0,0.01,-0.36));
+  [[-0.275,0.31],[0.275,0.31],[-0.275,0.655],[0.275,0.655]].forEach(([x,y])=>{
+    const m=new THREE.Group();
+    m.add(box(0.54,0.32,0.025,M.monitor,0,0,0));
+    const sc=new THREE.Mesh(new THREE.PlaneGeometry(0.515,0.295),new THREE.MeshBasicMaterial({map:screens[(screenN++)%screens.length]}));
+    sc.position.z=0.0131; m.add(sc);
+    m.position.set(x,y,-0.27); m.rotation.y=-Math.sign(x)*0.13; mons.add(m);
+    mons.add(cylBetween(V(0,y,-0.36),V(x*0.85,y,-0.295),0.012,M.armMat));
+  });
+  tag(mons,'monitors'); top.add(mons);
+  const kb=box(0.44,0.018,0.14,M.kbd,0.1,0.009,0.2); const ms=box(0.06,0.02,0.1,M.kbd,0.42,0.01,0.21);
+  tag(kb,'desk');tag(ms,'desk'); top.add(kb,ms);
+
+  const patch=mesh(new THREE.CylinderGeometry(0.008,0.008,1,6),M.copper,-0.42,0,-0.33); tag(patch,'copper'); patch.userData.net=true; base.add(patch);
+  const pcord=mesh(new THREE.CylinderGeometry(0.008,0.008,1,6),M.whip,-0.34,0,-0.31); tag(pcord,'whip'); pcord.userData.power=true; base.add(pcord);
+
+  const person=makePerson(seed); person.root.position.set(0.28,0,SEAT_Z); person.chair=ch; base.add(person.root);
+
+  function setHeight(h){
+    top.position.y=h;
+    const L=h-0.06-0.5; upper.forEach(u=>{u.scale.y=L;u.position.y=0.5+L/2;});
+    const a=0.6, b=h-0.14; [patch,pcord].forEach(c=>{c.scale.y=b-a;c.position.y=(a+b)/2;});
+  }
+  setHeight(deskH);
+  return {g,top,mons,setHeight,lockTabs,person};
+}
+
+const desks=[];
+slots.forEach((s,i)=>{
+  if(s===EMPTY) return;
+  const d=makeDesk(i+1); d.g.position.set(s.cx,0,s.cz); d.g.rotation.y=s.rot; s.desk=d;
+  scene.add(d.g); desks.push(d);
+});
+
+/* ------------------------------------------------------------------ *
+ *  Power                                                              *
+ * ------------------------------------------------------------------ */
+const powerGroup=new THREE.Group(); scene.add(powerGroup);
+const netGroup=new THREE.Group(); scene.add(netGroup);
+{
+  const panel=new THREE.Group();
+  panel.add(box(0.7,1.4,0.16,M.ahuPanel,0,0,0));
+  panel.add(box(0.6,1.25,0.01,M.conduit,0,0,0.085));
+  panel.position.set(-5.1,1.2,RZ0+0.1); tag(panel,'panel'); powerGroup.add(panel);
+  PAIRS.forEach((zc,p)=>{
+    [-1,1].forEach(side=>{
+      const z=zc+side*0.3;
+      const pm=new THREE.Group();
+      pm.add(box(0.36,0.11,0.24,M.pmod,0,0,0));
+      for(let r=0;r<7;r++) pm.add(box(0.012,0.03,0.025,M.recept,0.18,0.0,-0.09+r*0.03,false));
+      pm.position.set(PMOD_X,SLAB_Y+0.1,z); tag(pm,'pmod'); powerGroup.add(pm);
+      const xoff=-5.1+(p*2+(side>0?1:0))*0.05;
+      const cd=tube([V(xoff,0.5,RZ0+0.12),V(xoff,-0.08,RZ0+0.14),V(xoff,-0.1,RZ0+0.6),
+        V(xoff,-0.1,z-0.2*side),V(PMOD_X-0.25,-0.22,z),V(PMOD_X-0.18,SLAB_Y+0.1,z)],0.018,M.conduit,100);
+      tag(cd,'conduit'); powerGroup.add(cd);
+    });
+  });
+  slots.forEach(s=>{
+    const side=s.row==='A'?-1:1;
+    const z0=s.zc+side*0.3;
+    const zw=s.zc+side*(0.2+s.k*0.017);
+    const yb=SLAB_Y+0.05+(s.k%3)*0.022;
+    const pts=[V(PMOD_X+0.19,SLAB_Y+0.1,z0),V(PMOD_X+0.35,yb,zw),V(s.grom.x-0.3,yb,zw),
+      V(s.grom.x-0.04,yb+0.06,(zw+s.grom.z)/2),V(s.grom.x,-0.06,s.grom.z),V(s.grom.x,0.0,s.grom.z)];
+    const w=tube(pts,0.009,M.whip,90); tag(w,'whip'); powerGroup.add(w);
+    const riser=mesh(new THREE.CylinderGeometry(0.009,0.009,1,8),M.whip,s.grom.x,0,s.grom.z); tag(riser,'whip'); powerGroup.add(riser);
+    const plug=box(0.05,0.04,0.035,M.whip,s.grom.x,0.02,s.grom.z); tag(plug,'whip'); powerGroup.add(plug);
+    s.riser=riser; s.plug=plug;
+  });
+}
+function updateRisers(){
+  slots.forEach(s=>{
+    const on=!!s.desk&&!s.moving;
+    s.riser.visible=on; s.plug.visible=!on;
+    const top=deskH-0.13; s.riser.scale.y=top; s.riser.position.y=top/2;
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ *  Network                                                            *
+ * ------------------------------------------------------------------ */
+{
+  const idf=new THREE.Group();
+  idf.add(box(0.62,2.0,0.8,M.rack,0,1.0,0));
+  for(let u=0;u<10;u++) idf.add(box(0.5,0.04,0.01,u%3?M.led:M.ledBlue,0,0.4+u*0.13,0.405,false));
+  idf.position.set(-2.0,SLAB_Y,RZ0-0.75); tag(idf,'idf'); netGroup.add(idf);
+  const room=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(2.2,3.0,1.4)),M.wallEdge);
+  room.position.set(-2.0,SLAB_Y+1.5,RZ0-0.72); scene.add(room);
+
+  PAIRS.forEach((zc,p)=>{
+    const sw=new THREE.Group();
+    sw.add(box(0.6,1.15,0.9,M.sw,0,0.575,0));
+    for(let r=0;r<6;r++) sw.add(box(0.008,0.02,0.6,r%2?M.led:M.ledBlue,0.305,0.75+r*0.05,0,false));
+    sw.position.set(SWITCH_X,0,zc); tag(sw,'switch'); netGroup.add(sw);
+    const fx=-2.0+(p?0.06:-0.06);
+    const f=tube([V(fx,SLAB_Y+0.4,RZ0-0.35),V(fx,SLAB_Y+0.12,RZ0-0.1),V(fx,SLAB_Y+0.12,RZ0+0.3),
+      V(-2.3,SLAB_Y+0.12+p*0.02,RZ0+0.45+p*0.05),V(SWITCH_X+0.1,SLAB_Y+0.12+p*0.02,RZ0+0.5+p*0.05),
+      V(SWITCH_X+0.12+p*0.04,SLAB_Y+0.12,zc-0.5),V(SWITCH_X+0.1,-0.05,zc),V(SWITCH_X+0.1,0.2,zc)],0.007,M.fiber,140);
+    tag(f,'fiber'); netGroup.add(f);
+    [-1,1].forEach(side=>{
+      const c=tube([V(SWITCH_X+0.3,0.9,zc+side*0.1),V(SWITCH_X+0.6,0.75,zc+side*0.12),V(DESK_X0+0.05,0.62,zc+side*0.05)],0.016,M.copper,24);
+      tag(c,'copper'); netGroup.add(c);
+    });
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ *  Air handler, ducts, chilled water, return                          *
+ * ------------------------------------------------------------------ */
+let fan;
+{
+  const ahu=new THREE.Group();
+  ahu.add(box(1.7,3.3,4.0,M.ahu,0,1.65,0));
+  for(let i=0;i<3;i++) ahu.add(box(0.02,0.9,1.1,M.ahuPanel,0.86,1.1,-1.3+i*1.3));
+  ahu.add(box(0.04,1.6,3.4,M.coil,0.87,2.15,0));
+  fan=mesh(new THREE.CylinderGeometry(0.55,0.55,0.05,24),M.ahuPanel,0.88,0.85,1.3); fan.rotation.z=Math.PI/2; ahu.add(fan);
+  ahu.position.set(-6.95,SLAB_Y,0); tag(ahu,'ahu'); scene.add(ahu);
+  const dis=box(0.9,PLENUM-0.02,3.6,M.duct,-6.0,SLAB_Y+(PLENUM-0.02)/2,0); tag(dis,'ahu'); scene.add(dis);
+  const cw=new THREE.Group();
+  cw.add(mesh(new THREE.CylinderGeometry(0.07,0.07,4.2,16),M.pipeBlue,-7.35,5.0,-1.6));
+  cw.add(mesh(new THREE.CylinderGeometry(0.07,0.07,4.2,16),M.pipeRed,-7.0,5.0,-1.6));
+  tag(cw,'pipes'); scene.add(cw);
+  const oa=new THREE.Group();
+  oa.add(box(0.8,3.4,0.8,M.duct,-7.4,4.6,1.3));
+  oa.add(box(1.6,0.8,0.8,M.duct,-8.2,6.0,1.3));
+  oa.add(box(0.05,0.8,0.8,M.grille,-9.02,6.0,1.3));
+  tag(oa,'oa'); scene.add(oa);
+  const rt=new THREE.Group();
+  rt.add(box(0.04,0.8,1.8,M.grille,RX0+0.02,5.0,0));
+  rt.add(box(1.0,0.8,1.8,M.duct,RX0-0.52,5.0,0));
+  rt.add(box(0.7,1.6,1.2,M.duct,-6.75,3.8,0));
+  tag(rt,'ret'); scene.add(rt);
+}
+
+const breath=new THREE.Mesh(new THREE.BoxGeometry(9.6,0.3,16.4),M.breath);
+breath.position.set(0.6,1.68,0); tag(breath,'breath'); breath.userData.nopick=true; scene.add(breath);
+const breathEdges=new THREE.LineSegments(new THREE.EdgesGeometry(breath.geometry),new THREE.LineBasicMaterial({color:0x5cc8ff,transparent:true,opacity:.35}));
+breathEdges.position.copy(breath.position); scene.add(breathEdges);
+
+/* ------------------------------------------------------------------ *
+ *  Airflow particles                                                  *
+ * ------------------------------------------------------------------ */
+const N = 1800;
+const pPos=new Float32Array(N*3), pCol=new Float32Array(N*3), pA=new Float32Array(N);
+const pg=new THREE.BufferGeometry();
+pg.setAttribute('position',new THREE.BufferAttribute(pPos,3));
+pg.setAttribute('pcolor',new THREE.BufferAttribute(pCol,3));
+pg.setAttribute('alpha',new THREE.BufferAttribute(pA,1));
+const pMat=new THREE.ShaderMaterial({
+  uniforms:{uSize:{value:70*renderer.getPixelRatio()}},
+  vertexShader:`attribute float alpha;attribute vec3 pcolor;varying vec3 vC;varying float vA;uniform float uSize;
+    void main(){vC=pcolor;vA=alpha;vec4 mv=modelViewMatrix*vec4(position,1.);gl_PointSize=min(uSize/-mv.z,24.);gl_Position=projectionMatrix*mv;}`,
+  fragmentShader:`varying vec3 vC;varying float vA;void main(){vec2 c=gl_PointCoord-.5;float d=length(c);if(d>.5)discard;float a=smoothstep(.5,.05,d)*vA;gl_FragColor=vec4(vC*a,a);}`,
+  transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
+const points=new THREE.Points(pg,pMat); points.frustumCulled=false; points.userData.nopick=true; scene.add(points);
+
+const C0=new THREE.Color(0x41a8ff),C1=new THREE.Color(0xffd166),C2=new THREE.Color(0xff6b2b);
+const tmpC=new THREE.Color();
+function tempColor(t){return t<.5?tmpC.copy(C0).lerp(C1,t*2):tmpC.copy(C1).lerp(C2,(t-.5)*2);}
+const parts=[];
+function pickSlot(){
+  let tot=0; slots.forEach(s=>tot+=s.flow); let r=Math.random()*tot;
+  for(const s of slots){r-=s.flow;if(r<=0)return s;} return slots[0];
+}
+function spawn(p,prefill){
+  const src=V(-6.2,SLAB_Y+0.08+Math.random()*0.22,rnd(1.7));
+  let wp,tp,sp;
+  const ret=V(RX0+0.08,5+rnd(0.3),rnd(0.8));
+  if(Math.random()<0.06){
+    const zc=pickR(PAIRS);
+    wp=[src,V(SWITCH_X+rnd(0.2),SLAB_Y+0.15,zc+rnd(0.4)),V(SWITCH_X+rnd(0.2),0.02,zc+rnd(0.4)),V(SWITCH_X+rnd(0.22),1.1,zc+rnd(0.35)),V(SWITCH_X+rnd(0.5),2.6,zc+rnd(0.6)),V(-5+rnd(0.5),4.6,zc*0.5),ret];
+    tp=[0,0,0,0.05,0.8,0.65,0.6]; sp=[1.8,1.8,0.5,0.45,0.5,0.8];
+  }else{
+    const s=pickSlot();
+    const d=s.diff, j=0.15;
+    const a=V(d.x+rnd(0.5),SLAB_Y+0.15+Math.random()*0.12,d.z+rnd(0.2));
+    const b=V(d.x+rnd(j),0.02,d.z+rnd(j));
+    const viaPC=!!s.desk&&!s.moving&&Math.random()<0.7;
+    if(viaPC){
+      wp=[src,a,b,V(s.pc.x+rnd(0.08),0.16,s.pc.z+rnd(0.2)),V(s.pc.x+rnd(0.06),0.55,s.pc.z+s.back*0.3),
+          V(s.pc.x+rnd(0.25),0.9,s.zc+rnd(0.06)),V(s.pc.x+rnd(0.6),2.3,s.zc+rnd(0.4)),V(s.pc.x*0.5+rnd(1),4.4,s.zc*0.4+rnd(1)),ret];
+      tp=[0,0,0,0.05,0.95,0.85,0.72,0.62,0.58]; sp=[1.8,0.6,0.5,0.28,0.4,0.45,0.6,0.9];
+    }else{
+      const front=-s.back;
+      wp=[src,a,b,V(b.x+rnd(0.25),0.75,b.z+front*0.3+rnd(0.15)),V(b.x+rnd(0.35),1.65,b.z+front*0.7+rnd(0.3)),
+          V(b.x+rnd(0.8),3.0,b.z+front*0.5+rnd(0.8)),V(b.x*0.5+rnd(1),4.5,b.z*0.4+rnd(1)),ret];
+      tp=[0,0,0,0.12,0.3,0.45,0.5,0.52]; sp=[1.8,0.6,0.5,0.5,0.55,0.6,0.9];
+    }
+  }
+  const dur=[];let total=0;
+  for(let i=0;i<wp.length-1;i++){const t=wp[i].distanceTo(wp[i+1])/sp[i];dur.push(t);total+=t;}
+  p.wp=wp;p.tp=tp;p.dur=dur;p.total=total;p.t=prefill?Math.random()*total:0;p.ph=Math.random()*6.28;
+}
+for(let i=0;i<N;i++){const p={};spawn(p,true);parts.push(p);}
+const tv=new THREE.Vector3();
+function updateParticles(dt,time){
+  for(let i=0;i<N;i++){
+    const p=parts[i]; p.t+=dt;
+    if(p.t>=p.total) spawn(p,false);
+    let t=p.t,k=0; while(k<p.dur.length-1&&t>p.dur[k]){t-=p.dur[k];k++;}
+    const f=Math.min(t/p.dur[k],1);
+    tv.lerpVectors(p.wp[k],p.wp[k+1],f);
+    const wob=p.wp[k+1].y>0.3?0.03:0.008;
+    pPos[i*3]=tv.x+Math.sin(time*1.3+p.ph)*wob; pPos[i*3+1]=tv.y; pPos[i*3+2]=tv.z+Math.cos(time*1.1+p.ph)*wob;
+    const c=tempColor(p.tp[k]+(p.tp[k+1]-p.tp[k])*f);
+    pCol[i*3]=c.r;pCol[i*3+1]=c.g;pCol[i*3+2]=c.b;
+    const u=p.t/p.total; pA[i]=Math.min(1,p.t/0.4)*Math.min(1,(1-u)*8)*(tv.y>2.5?0.55:0.9);
+  }
+  pg.attributes.position.needsUpdate=true;pg.attributes.pcolor.needsUpdate=true;pg.attributes.alpha.needsUpdate=true;
+}
+
+/* ------------------------------------------------------------------ *
+ *  Money                                                              *
+ * ------------------------------------------------------------------ */
+const BILLS=800;
+const billTex=(()=>{const [c,g]=canvas(256,108);g.fillStyle='#cfe0c3';g.fillRect(0,0,256,108);
+  g.strokeStyle='#4f7a4a';g.lineWidth=6;g.strokeRect(5,5,246,98);g.lineWidth=2;g.strokeRect(14,14,228,80);
+  g.fillStyle='#8fb488';g.beginPath();g.ellipse(128,54,30,36,0,0,7);g.fill();
+  g.fillStyle='#2f5a2c';g.font='bold 40px Georgia,serif';g.fillText('$',116,68);
+  g.font='bold 22px Georgia,serif';g.fillText('100',22,40);g.fillText('100',194,92);return tex(c);})();
+const billMesh=new THREE.InstancedMesh(new THREE.PlaneGeometry(0.22,0.093),std(0xffffff,{r:.8,x:{map:billTex,side:THREE.DoubleSide}}),BILLS);
+billMesh.frustumCulled=false; tag(billMesh,'bill'); scene.add(billMesh);
+const bills=[]; const bm4=new THREE.Matrix4(), bq=new THREE.Quaternion(), be=new THREE.Euler(), bs=new THREE.Vector3(), zero=new THREE.Matrix4().makeScale(0,0,0);
+for(let i=0;i<BILLS;i++){bills.push({on:false,p:new THREE.Vector3(),r:new THREE.Euler()});billMesh.setMatrixAt(i,zero);}
+let billNext=0;
+function restHeight(x,z){
+  for(const s of slots){ if(s.desk&&!s.moving&&Math.abs(x-s.cx)<.58&&Math.abs(z-s.cz)<.38) return deskH+0.004+Math.random()*0.004; }
+  return 0.004+Math.random()*0.004;
+}
+function spawnBill(){
+  const b=bills[billNext]; billNext=(billNext+1)%BILLS;
+  b.on=true;b.landed=false;b.p.set(rnd(5.6)+0.3,5.6+Math.random()*1.3,rnd(8.4));
+  b.r.set(Math.random()*6,Math.random()*6,Math.random()*6);
+  b.w=V(rnd(5),rnd(3),rnd(5)); b.fall=1.0+Math.random()*.7; b.f=1+Math.random()*2; b.ph=Math.random()*6.28;
+  b.rest=restHeight(b.p.x,b.p.z);
+}
+function updateBills(dt,time){
+  let any=false;
+  for(let i=0;i<BILLS;i++){
+    const b=bills[i]; if(!b.on) continue; any=true; let sc=1;
+    if(!b.landed){
+      b.p.y-=b.fall*dt; b.p.x+=Math.sin(time*b.f+b.ph)*.6*dt; b.p.z+=Math.cos(time*b.f*.8+b.ph)*.5*dt;
+      b.r.x+=b.w.x*dt;b.r.y+=b.w.y*dt;b.r.z+=b.w.z*dt;
+      if(b.p.y<=b.rest+.6&&b.p.y>b.rest) b.rest=restHeight(b.p.x,b.p.z)>b.rest?restHeight(b.p.x,b.p.z):b.rest;
+      if(b.p.y<=b.rest){b.p.y=b.rest;b.landed=true;b.r.set(-Math.PI/2,0,Math.random()*6.28);b.landT=time;}
+    }else{
+      const age=time-b.landT; if(age>14){sc=Math.max(0,1-(age-14));if(sc<=0){b.on=false;billMesh.setMatrixAt(i,zero);continue;}}
+    }
+    bq.setFromEuler(b.r); bs.setScalar(sc); bm4.compose(b.p,bq,bs); billMesh.setMatrixAt(i,bm4);
+  }
+  if(any) billMesh.instanceMatrix.needsUpdate=true;
+}
+
+/* ------------------------------------------------------------------ *
+ *  Labels                                                             *
+ * ------------------------------------------------------------------ */
+const labelObjs=[];
+/* Clicking a label flies the camera to an example of that thing.
+   focus.t  = world-space target (defaults to the label's own position)
+   focus.lt = target in the parent's local frame (for labels riding on a desk)
+   focus.off = camera offset from the target (local to the desk when the label rides on one)
+   focus.floor = floor mode to switch to if tiles would hide it */
+function label(text,key,pos,cls='',parent=scene,focus=null){
+  const el=document.createElement('div'); el.className='lbl '+cls; el.textContent=text;
+  const o=new CSS2DObject(el); o.position.copy(pos); parent.add(o); labelObjs.push(o); o.userData.cls=cls;
+  el.addEventListener('pointerdown',e=>e.stopPropagation());
+  el.addEventListener('click',e=>{e.stopPropagation();showInfo(key);if(focus)focusOn(o,parent,focus,key);});
+  return o;
+}
+/* Highlight: a pulsing glow overlaid on every mesh of the focused item.
+   It ignores depth, so it shows through whatever is in front of it. */
+const hlMat=new THREE.MeshBasicMaterial({color:0xffd23f,transparent:true,opacity:0,depthTest:false,depthWrite:false,blending:THREE.AdditiveBlending});
+let hl={overlays:[],start:-99};
+function clearHighlight(){hl.overlays.forEach(o=>o.parent&&o.parent.remove(o));hl.overlays=[];}
+function highlight(key,root){
+  clearHighlight();
+  root.traverse(m=>{
+    if(!m.isMesh||m.isInstancedMesh||m.userData.key!==key||m.userData.hlOverlay) return;
+    const ov=new THREE.Mesh(m.geometry,hlMat); ov.userData.hlOverlay=true; ov.userData.nopick=true; ov.renderOrder=999;
+    m.add(ov); hl.overlays.push(ov);
+  });
+  hl.start=now;
+}
+function updateHighlight(time){
+  if(!hl.overlays.length) return;
+  const age=time-hl.start, env=age<7?1:Math.max(0,1-(age-7));
+  hlMat.opacity=env*(0.25+0.4*(0.5+0.5*Math.sin(age*5)));
+  if(env<=0) clearHighlight();
+}
+const _q=new THREE.Quaternion();
+function focusOn(o,parent,f,key){
+  if(f.fn){const r=f.fn(o);if(f.floor&&floorMode==='solid')setFloor(f.floor);
+    if(f.solidFloor&&floorMode!=='solid')setFloor('solid');
+    camTween={t:0,fp:camera.position.clone(),ft:controls.target.clone(),tp:r.pos,tt:r.target};
+    focusLight.position.lerpVectors(r.pos,r.target,0.4);focusLight.intensity=2.5;highlight(key,r.hl);return;}
+  let target, off=V(...f.off);
+  highlight(key,parent===scene?scene:(parent===demo.top?demo.g:parent));
+  if(parent===scene){ target=f.t?V(...f.t):o.getWorldPosition(new THREE.Vector3()); }
+  else{
+    const root=parent===demo.top?demo.g:parent;
+    target=f.lt?root.localToWorld(V(...f.lt)):o.getWorldPosition(new THREE.Vector3());
+    root.getWorldQuaternion(_q); off.applyQuaternion(_q);
+  }
+  if(f.floor&&floorMode==='solid') setFloor(f.floor);
+  camTween={t:0,fp:camera.position.clone(),ft:controls.target.clone(),tp:target.clone().add(off),tt:target};
+  focusLight.position.lerpVectors(camTween.tp,target,0.4);focusLight.intensity=off.length()<3?2.5:0;
+}
+const demo=slotOf(0,'B',4).desk;
+// The empty seat leaves a diffuser and a desk end exposed, so use it for those close-ups.
+function emptySpot(){
+  const E=slots.find(s=>!s.desk&&!s.moving)||EMPTY;
+  const N=slots.find(s=>s.key===E.key&&Math.abs(s.k-E.k)===1&&s.desk)||slots.find(s=>s.key===E.key&&s.desk);
+  return {E,N,dx:Math.sign(E.cx-N.cx)||1};
+}
+const focusDiffuser=(lbl)=>{const {E}=emptySpot();
+  if(lbl) lbl.position.set(E.diff.x,0.05,E.diff.z);   // keep the label on the diffuser being shown
+  return {target:V(E.diff.x,0,E.diff.z),pos:V(E.diff.x+0.35,1.15,E.diff.z-E.back*1.35),hl:E.diffMesh};};
+const focusTray=()=>{const {N,dx}=emptySpot(); const tz=N.zc-N.back*0.1;
+  return {target:V(N.cx+dx*0.4,deskH-0.15,tz),pos:V(N.cx+dx*1.35,deskH-0.2,tz-N.back*0.75),hl:N.desk.g};};
+// soft "headlamp" that follows close-ups so shadowed spots under desks read
+const focusLight=new THREE.PointLight(0xfff3e0,0,3.5,1.5); scene.add(focusLight);
+label('Air handler · chilled-water coil','ahu',V(-6.9,3.45,0),'air',scene,{t:[-6.6,1.6,0],off:[6,1.6,4.5]});
+label('Underfloor plenum ≈12–16 in','plenum',V(5.5,-0.18,RZ1),'air',scene,{t:[4.0,-0.2,7.4],off:[0.8,0.15,3.2],floor:'xray'});
+label('Concrete floor tiles','floor',V(3.0,0.02,RZ1-0.3),'dim',scene,{t:[3.0,0,7.8],off:[1.2,1.6,2.2]});
+label('Rotatable diffuser','diffuser',V(EMPTY.diff.x,0.05,EMPTY.diff.z),'air',scene,{fn:focusDiffuser,solidFloor:true});
+label('PC in under-desk enclosure','pc',V(-0.38,0.62,-0.03),'warm',demo.g,{lt:[-0.38,0.35,0.1],off:[-0.12,1.1,1.95]});
+label('Cable tray (power + data)','tray',V(-0.2,-0.16,-0.32),'',demo.top,{fn:focusTray});
+label('Monitor arms','monitors',V(0,0.9,-0.36),'',demo.top,{lt:[0,1.2,-0.3],off:[0.25,0.25,1.7]});
+label('Lockable wheels','casters',V(-0.56,0.05,0.32),'',demo.g,{lt:[-0.56,0.05,0.32],off:[-0.3,0.45,1.1]});
+label('≈4 ft desk · raise/lower','desk',V(-0.3,0.02,0.4),'dim',demo.top,{lt:[0,0.7,0],off:[1.4,1.3,2.2]});
+label('Trader, dressed casual','trader',V(0.28,1.5,SEAT_Z),'ppl',demo.g,{lt:[0.28,1.0,SEAT_Z],off:[0.5,0.5,1.5]});
+label('Power module box','pmod',V(PMOD_X,SLAB_Y+0.18,PAIRS[1]+0.3),'pw',scene,{t:[PMOD_X,SLAB_Y+0.1,PAIRS[1]+0.3],off:[1.3,1.0,1.4],floor:'lifted'});
+label('Power whips','whip',V(1.6,SLAB_Y+0.12,PAIRS[1]+0.33),'pw',scene,{t:[1.6,SLAB_Y+0.1,PAIRS[1]+0.3],off:[0.4,1.3,2.6],floor:'lifted'});
+label('End-of-row switch enclosure','switch',V(SWITCH_X,1.25,PAIRS[1]),'nw',scene,{t:[SWITCH_X,0.6,PAIRS[1]],off:[2.0,0.9,1.8]});
+label('Fiber from IDF','fiber',V(-3.4,SLAB_Y+0.15,RZ0+0.5),'nw',scene,{t:[-3.4,SLAB_Y+0.12,RZ0+0.5],off:[1.0,1.1,1.9],floor:'lifted'});
+label('IDF room','idf',V(-2.0,2.0,RZ0-0.75),'nw',scene,{t:[-2.0,0.8,RZ0-0.75],off:[1.6,0.7,3.4]});
+label('Copper stays above floor','copper',V(SWITCH_X+0.75,0.85,PAIRS[0]+0.12),'nw',scene,{t:[SWITCH_X+0.75,0.75,PAIRS[0]],off:[0.9,0.7,2.4]});
+label('Electrical panel (assumed)','panel',V(-5.1,2.0,RZ0+0.1),'pw',scene,{t:[-5.1,1.1,RZ0+0.1],off:[1.6,0.4,2.6]});
+label('Outside air · MERV 16','oa',V(-8.4,6.5,1.3),'air',scene,{t:[-8.0,5.6,1.3],off:[4.5,0.6,4.5]});
+label('Chilled water','pipes',V(-7.2,7.2,-1.6),'air',scene,{t:[-7.2,5.2,-1.6],off:[4.5,0.2,3.5]});
+label('Return air (assumed)','ret',V(RX0,5.55,0),'air',scene,{t:[RX0,5.0,0],off:[5,-0.6,3.2]});
+label('Breathing zone ≈5–6 ft','breath',V(5.4,1.85,7.6),'air',scene,{t:[3.0,1.4,5.0],off:[4.5,1.4,4.5]});
+
+/* ------------------------------------------------------------------ *
+ *  Info panel, picking                                                *
+ * ------------------------------------------------------------------ */
+const infoEl=document.getElementById('info'),infoTitle=document.getElementById('infoTitle'),infoBody=document.getElementById('infoBody');
+document.getElementById('infoClose').onclick=()=>{infoEl.hidden=true;};
+const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const list=a=>`<ul>${a.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`;
+function showInfo(key,extra=''){
+  const d=INFO[key]; if(!d) return;
+  infoTitle.textContent=d.t;
+  let h='';
+  if(d.s.length) h+=`<div class="tagline s">From the podcast</div>${list(d.s)}`;
+  if(d.w) h+=`<div class="tagline w">From a web search</div>${list(d.w)}`;
+  if(d.a.length) h+=`<div class="tagline a">Assumed for this model</div>${list(d.a)}`;
+  if(d.act) h+=`<div class="act">${esc(d.act)}</div>`;
+  if(extra) h+=`<div class="act">${extra}</div>`;
+  infoBody.innerHTML=h; infoEl.hidden=false;
+}
+const ray=new THREE.Raycaster(), ndc=new THREE.Vector2();
+function visibleChain(o){while(o){if(!o.visible)return false;o=o.parent;}return true;}
+function pick(cx,cy){
+  ndc.set(cx/innerWidth*2-1,-(cy/innerHeight)*2+1); ray.setFromCamera(ndc,camera);
+  const hits=ray.intersectObjects(scene.children,true);
+  for(const h of hits){
+    const o=h.object; if(o.isPoints||o.isLine||o.userData.nopick||!o.userData.key) continue;
+    if(o===billMesh) continue;
+    if(!visibleChain(o)) continue;
+    if(floorMode!=='solid'&&(o.userData.key==='floor'||o.userData.key==='grommet')) continue;
+    if(o.userData.key==='wall') continue;
+    return o;
+  }
+  return null;
+}
+const FLOW_STEPS=[1,0.5,0], FLOW_NAMES=['open','half open','closed'], FLOW_COLORS=[0x6f7782,0xffb547,0xe5484d];
+let downXY=null, now=0;
+renderer.domElement.addEventListener('pointerdown',e=>{downXY=[e.clientX,e.clientY];});
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(!downXY) return; const moved=Math.hypot(e.clientX-downXY[0],e.clientY-downXY[1]); downXY=null; if(moved>5) return;
+  const o=pick(e.clientX,e.clientY); if(!o){infoEl.hidden=true;return;}
+  const key=o.userData.key;
+  if(key==='diffuser'){
+    const s=slots[o.userData.slot]; const i=(FLOW_STEPS.indexOf(s.flow)+1)%3; s.flow=FLOW_STEPS[i];
+    s.diffTarget=(s.diffTarget||0)+Math.PI/3;
+    s.ringMat.color.set(FLOW_COLORS[i]); s.ringMat.emissive.set(FLOW_COLORS[i]).multiplyScalar(i?0.35:0);
+    clearHighlight();   // let the collar color show instead of the yellow glow
+    showInfo('diffuser',`This diffuser is now <b>${FLOW_NAMES[i]}</b> (collar: ${['gray','amber','red'][i]}). ${['Full flow to this desk.','Half the air comes up here.','No air comes up here; watch the blue particles stop rising from it.'][i]}`);
+  } else if(key==='trader'){
+    const P=o.userData.person;
+    if(P.mode==='base'){P.sStyle=pickR(['hello','why','palm','hello']);P.surpriseUntil=now+2.4;}
+    showInfo('trader');
+  } else showInfo(key);
+});
+const tip=document.getElementById('tip');
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(e.buttons){tip.style.display='none';return;}
+  const o=pick(e.clientX,e.clientY);
+  if(o&&INFO[o.userData.key]){tip.textContent=INFO[o.userData.key].t;tip.style.display='block';tip.style.left=(e.clientX+14)+'px';tip.style.top=(e.clientY+12)+'px';renderer.domElement.style.cursor='pointer';}
+  else{tip.style.display='none';renderer.domElement.style.cursor='';}
+});
+renderer.domElement.addEventListener('pointerleave',()=>tip.style.display='none');
+
+/* ------------------------------------------------------------------ *
+ *  Controls                                                           *
+ * ------------------------------------------------------------------ */
+let floorMode='solid';
+function setFloor(m){
+  floorMode=m;
+  document.querySelectorAll('#floorMode button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+  floorMats.forEach(mt=>{mt.transparent=m==='xray';mt.opacity=m==='xray'?0.16:1;mt.depthWrite=m!=='xray';mt.needsUpdate=true;});
+  tiles.forEach(t=>{t.visible=m!=='lifted';t.castShadow=m==='solid';});
+  slots.forEach(s=>s.diffMesh.visible=m!=='lifted');
+}
+document.querySelectorAll('#floorMode button').forEach(b=>b.onclick=()=>setFloor(b.dataset.m));
+
+const ck=id=>document.getElementById(id);
+const ckAir=ck('ckAir'),ckPower=ck('ckPower'),ckNet=ck('ckNet'),ckLabels=ck('ckLabels'),ckPeople=ck('ckPeople');
+function applyToggles(){
+  points.visible=ckAir.checked; breath.visible=breathEdges.visible=ckAir.checked; M.exhaust.opacity=ckAir.checked?.35:0;
+  powerGroup.visible=ckPower.checked; netGroup.visible=ckNet.checked;
+  scene.traverse(o=>{if(o.userData.power&&o.parent!==powerGroup)o.visible=ckPower.checked;if(o.userData.net&&o.parent!==netGroup)o.visible=ckNet.checked;});
+  peopleGroup.forEach(P=>P.root.visible=ckPeople.checked);
+  document.getElementById('labels').style.display=ckLabels.checked?'':'none';
+  labelObjs.forEach(l=>{const c=l.userData.cls;l.visible=!((c==='pw'&&!ckPower.checked)||(c==='nw'&&!ckNet.checked)||(c==='ppl'&&!ckPeople.checked));});
+}
+[ckAir,ckPower,ckNet,ckLabels,ckPeople].forEach(c=>c.onchange=applyToggles);
+
+const hIn=ck('height'),hVal=ck('hval');
+function setDeskHeight(h){deskH=h;desks.forEach(d=>d.setHeight(h));updateRisers();
+  const inch=h/0.0254;hVal.textContent=`${Math.round(inch)} in${h>1.0?' · standing':h<0.8?' · seated':''}`;}
+hIn.oninput=()=>setDeskHeight(+hIn.value);
+
+const kIn=ck('kelvin'),kVal=ck('kval');
+function kelvin(K){const t=K/100;let r,g,b;
+  r=t<=66?255:329.698727446*Math.pow(t-60,-0.1332047592);
+  g=t<=66?99.4708025861*Math.log(t)-161.1195681661:288.1221695283*Math.pow(t-60,-0.0755148492);
+  b=t>=66?255:(t<=19?0:138.5177312231*Math.log(t-10)-305.0447927307);
+  const cl=v=>Math.max(0,Math.min(255,v))/255;return new THREE.Color(cl(r),cl(g),cl(b));}
+function setKelvin(K){const c=kelvin(K).lerp(new THREE.Color(1,1,1),0.35);sun.color.copy(c);hemi.color.copy(c);
+  kVal.textContent=`${K}K${K<=3000?' · warm':K>=3800?' · cool':''}`;}
+kIn.oninput=()=>setKelvin(+kIn.value);
+
+ck('collapse').onclick=()=>{const p=ck('panel');p.classList.toggle('min');ck('collapse').textContent=p.classList.contains('min')?'+':'–';};
+
+const VIEWS={
+  overview:{p:[12,10,15],t:[0,0.3,0]},
+  aisle:{p:[7.2,2.3,0.2],t:[-1,0.7,0]},
+  under:{p:[1.8,-0.14,10.8],t:[-1.5,-0.22,3]},
+  desk:{p:[1.3,1.45,-1.0],t:[1.42,0.35,-2.95]},
+  endrow:{p:[-2.3,1.9,-0.7],t:[-4.3,0.0,-3.2]},
+  air:{p:[-0.5,2.6,13],t:[-1.8,1.5,0]},
+};
+let camTween=null;
+function goView(v){const d=VIEWS[v];camTween={t:0,fp:camera.position.clone(),ft:controls.target.clone(),tp:V(...d.p),tt:V(...d.t)};
+  if(v==='under'&&floorMode==='solid') setFloor('xray');}
+document.querySelectorAll('#views button').forEach(b=>b.onclick=()=>goView(b.dataset.v));
+
+/* ------------------------------------------------------------------ *
+ *  MAC chaos: random multi-desk swaps                                 *
+ *  Each aisle runs its swaps one at a time; the three aisles run in   *
+ *  parallel. Lanes are spaced so moving desks clear parked desks,     *
+ *  parked chairs, and each other.                                     *
+ * ------------------------------------------------------------------ */
+const LANES={ '0A':{near:-5.65,far:-7.35}, '1B':{near:5.65,far:7.35},
+              '0B':{near:-1.45,far:0.25,cross:-1.2}, '1A':{near:1.45,far:-0.25,cross:1.2} };
+const statusEl=ck('status'), shuffleBtn=ck('shuffle'), goodBtn=ck('good');
+let shuffle=null, party=null;
+function sameRowJob(aisle,row){
+  const a=pickR(row); let b; do{b=pickR(row);}while(b===a);
+  return {aisle,a,b,cross:false};
+}
+function randomJob(){
+  const r=Math.random();
+  if(r<.22) return sameRowJob('south',rowSlots(0,'A'));
+  if(r<.44) return sameRowJob('north',rowSlots(1,'B'));
+  const r2=Math.random();
+  if(r2<.28) return sameRowJob('central',rowSlots(0,'B'));
+  if(r2<.56) return sameRowJob('central',rowSlots(1,'A'));
+  let a,b; do{a=pickR(rowSlots(0,'B'));b=pickR(rowSlots(1,'A'));}while(Math.abs(a.k-b.k)<2);
+  return {aisle:'central',a,b,cross:true};
+}
+function makeMover(desk,from,to,laneZ,cross,speed,delay){
+  const toRot=cross?from.rot+(Math.random()<.5?Math.PI:-Math.PI):from.rot;
+  const k=[[from.cx,from.cz,from.rot],[from.cx,laneZ,from.rot],[to.cx,laneZ,from.rot]];
+  if(cross){k.push([to.cx,0,from.rot]);k.push([to.cx,0,toRot]);}
+  k.push([to.cx,to.cz,toRot]);
+  const d=[];let total=0;
+  for(let i=0;i<k.length-1;i++){const dist=Math.hypot(k[i+1][0]-k[i][0],k[i+1][1]-k[i][1]);const t=dist>0.01?dist/speed:0.9;d.push(t);total+=t;}
+  return {desk,to,k,d,total,t:-delay,wob:.04+Math.random()*.07,wf:3+Math.random()*5,done:false};
+}
+function startJob(job,time){
+  const dA=job.a.desk, dB=job.b.desk;
+  if(!dA&&!dB) return null;
+  const speed=1.5+Math.random()*1.1, movers=[];
+  const L=s=>LANES[s.key];
+  if(job.cross){
+    if(dA) movers.push(makeMover(dA,job.a,job.b,L(job.a).cross,true,speed,Math.random()*.3));
+    if(dB) movers.push(makeMover(dB,job.b,job.a,L(job.b).cross,true,speed,Math.random()*.3));
+  }else{
+    const both=dA&&dB;
+    if(dA) movers.push(makeMover(dA,job.a,job.b,L(job.a).near,false,speed,both?.5:0));
+    if(dB) movers.push(makeMover(dB,job.b,job.a,both?L(job.b).far:L(job.b).near,false,speed,0));
+  }
+  job.a.moving=job.b.moving=true; job.a.desk=job.b.desk=null; updateRisers();
+  movers.forEach(m=>{m.desk.lockTabs.forEach(t=>t.material=M.lockOff);const P=m.desk.person;
+    P.sStyle=pickR(['head','why','flail','palm','cling','head','why']);P.surpriseUntil=Infinity;P.danceUntil=-1;shuffle.moved++;});
+  job.movers=movers; job.dA=dA; job.dB=dB; return job;
+}
+function finishJob(job,time){
+  job.b.desk=job.dA; job.a.desk=job.dB; job.a.moving=job.b.moving=false;
+  job.movers.forEach(m=>{m.desk.g.rotation.y=m.to.rot;m.desk.g.position.set(m.to.cx,0,m.to.cz);
+    m.desk.lockTabs.forEach(t=>t.material=M.lockOn);m.desk.person.surpriseUntil=time+1.0+Math.random()*1.2;});
+  updateRisers();
+}
+function updateMover(m,dt){
+  m.t+=dt; if(m.t<0) return false;
+  let t=m.t,i=0; while(i<m.d.length-1&&t>m.d[i]){t-=m.d[i];i++;}
+  const f=Math.min(t/m.d[i],1), e=f*f*(3-2*f), a=m.k[i], b=m.k[i+1];
+  let r=a[2]+(b[2]-a[2])*e;
+  if(i===1) r+=m.wob*Math.sin(m.t*m.wf)*Math.sin(Math.PI*f);
+  m.desk.g.position.set(a[0]+(b[0]-a[0])*e, .006*Math.abs(Math.sin(m.t*23)), a[1]+(b[1]-a[1])*e);
+  m.desk.g.rotation.y=r;
+  m.desk.mons.rotation.z=.03*Math.sin(m.t*17);
+  if(m.t>=m.total){m.desk.mons.rotation.z=0;return true;}
+  return false;
+}
+const START_MSGS=['New seating chart just dropped.','Reorg! Nobody was warned.','Intern season: everybody moves.','The MAC team found a better layout.'];
+shuffleBtn.onclick=()=>{
+  if(shuffle||party) return;
+  const n=3+Math.floor(Math.random()*4);
+  const Q={south:[],central:[],north:[]};
+  for(let i=0;i<n;i++){const j=randomJob();Q[j.aisle].push(j);}
+  shuffle={Q,run:{},next:{south:now+Math.random()*.6,central:now+Math.random()*.6,north:now+Math.random()*.6},moved:0,n};
+  statusEl.textContent=`${pickR(START_MSGS)} ${n} seat swaps in progress…`;
+  shuffleBtn.disabled=goodBtn.disabled=true;
+};
+function updateShuffle(dt,time){
+  if(!shuffle) return;
+  let busy=false;
+  for(const a of ['south','central','north']){
+    const job=shuffle.run[a];
+    if(job){
+      busy=true; let all=true;
+      job.movers.forEach(m=>{if(!m.done){m.done=updateMover(m,dt);if(!m.done)all=false;}});
+      if(all){finishJob(job,time);shuffle.run[a]=null;shuffle.next[a]=time+.2+Math.random()*.7;}
+    }else if(shuffle.Q[a].length){
+      busy=true;
+      if(time>=shuffle.next[a]){const j=startJob(shuffle.Q[a].shift(),time); if(j) shuffle.run[a]=j;}
+    }
+  }
+  if(!busy){
+    statusEl.textContent=`Done. ${shuffle.moved} trader${shuffle.moved===1?' was':'s were'} relocated mid-thought. Whips re-plugged, wheels locked.`;
+    shuffle=null; shuffleBtn.disabled=goodBtn.disabled=false;
+  }
+}
+
+/* Good trade: money rain + dancing */
+const DANCES=['disco','roof','wave','twist','robot'];
+goodBtn.onclick=()=>{
+  if(shuffle||party) return;
+  party={start:now,spawnUntil:now+8,end:now+10.5,acc:0};
+  desks.forEach(d=>{const P=d.person;P.dStyle=pickR(DANCES);P.danceFrom=now+Math.random()*.8;P.danceUntil=now+9+Math.random()*1.2;});
+  statusEl.textContent=pickR(['Good trade! Bonus pool is looking healthy.','Good trade! Someone queue the music.','Good trade! The PnL graph just went vertical.']);
+  shuffleBtn.disabled=goodBtn.disabled=true;
+};
+function updateParty(dt,time){
+  if(!party) return;
+  if(time<party.spawnUntil){party.acc+=dt*105;while(party.acc>=1){spawnBill();party.acc--;}}
+  if(time>party.end){party=null;shuffleBtn.disabled=goodBtn.disabled=false;statusEl.textContent='Back to work.';}
+}
+
+/* ------------------------------------------------------------------ *
+ *  Loop                                                               *
+ * ------------------------------------------------------------------ */
+setFloor('solid'); applyToggles(); setDeskHeight(deskH); setKelvin(3000);
+const clock=new THREE.Clock();
+function frame(){
+  const rawDt=clock.getDelta(), dt=Math.min(rawDt,0.05), sdt=Math.min(rawDt,0.25);
+  now=clock.elapsedTime; const time=now;
+  if(camTween){camTween.t=Math.min(1,camTween.t+rawDt/1.3);const e=1-Math.pow(1-camTween.t,3);
+    camera.position.lerpVectors(camTween.fp,camTween.tp,e);controls.target.lerpVectors(camTween.ft,camTween.tt,e);if(camTween.t>=1)camTween=null;}
+  controls.update();
+  if(points.visible) updateParticles(dt,time);
+  slots.forEach(s=>{if(s.diffTarget!==undefined){s.diffMesh.rotation.y+=(s.diffTarget-s.diffMesh.rotation.y)*Math.min(1,dt*6);}});
+  fan.rotation.x+=dt*6;
+  updateShuffle(sdt,time);
+  updateParty(sdt,time);
+  updateBills(sdt,time);
+  updateHighlight(time);
+  if(ckPeople.checked) peopleGroup.forEach(P=>updatePerson(P,time,sdt));
+  renderer.render(scene,camera); labelRenderer.render(scene,camera);
+  requestAnimationFrame(frame);
+}
+frame();
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);labelRenderer.setSize(innerWidth,innerHeight);});
+if(innerWidth<640){ck('panel').classList.add('min');ck('collapse').textContent='+';}
+</script>
+</body>
+</html>
