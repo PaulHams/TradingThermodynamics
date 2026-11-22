@@ -168,7 +168,7 @@ const INFO = {
        ['You can lean over and rotate a diffuser to set how much air you get.','q161'],
        ['The same air cools the enclosed, high-power PCs under the traders’ desks.','q161'],
        ['Air leaving the floor rises about 5–6 ft to the breathing zone, as fresh as it gets.','q188']],
-    a:['Swirl-style round diffuser, one per desk position, placed under the PC enclosure.'],
+    a:['Swirl-style round diffuser, one per desk position, set just in front of the desk beside the chair, close to the PC enclosure.'],
     act:'Click the diffuser itself (the slotted disk in the floor) to turn it: open → half → closed. Its collar turns gray, amber, then red, and the blue air rising from it thins out and stops.'},
   pc:{t:'Under-desk PC enclosure',
     s:[['Traders have high-power PCs under the desk, in an enclosure, and cold air from the floor reaches them.','q161'],
@@ -454,7 +454,8 @@ PAIRS.forEach((zc,p)=>{
       slots.push({p,row,k,zc,x0,key:p+row,
         cx:x0+.6, cz:A?zc-.4:zc+.4, rot:A?Math.PI:0,
         pc:V(A?x0+.98:x0+.22,0,A?zc-.37:zc+.37),
-        diff:V(A?x0+.9:x0+.3,0,A?zc-.3:zc+.3),
+        // diffuser sits just in front of the desk, beside the chair, where a trader can lean over and turn it (43:26)
+        diff:V(A?x0+.9:x0+.3,0,A?zc-.9:zc+.9),   // on a 0.6 m tile centre, so it fills the tile's hole
         grom:V(A?x0+.3:x0+.9,0,A?zc-.08:zc+.08),
         back:A?1:-1, desk:null, flow:1, moving:false});
     }
@@ -462,7 +463,8 @@ PAIRS.forEach((zc,p)=>{
 });
 const slotOf=(p,row,k)=>slots.find(s=>s.p===p&&s.row===row&&s.k===k);
 const rowSlots=(p,row)=>slots.filter(s=>s.p===p&&s.row===row);
-const EMPTY = slotOf(1,'A',6);
+// row-end desk: its outer end and its diffuser are in the open, so close-ups use it
+const SHOWCASE = slotOf(1,'A',6);
 
 slots.forEach(s=>{const [i,j]=tIdx(s.diff.x,s.diff.z);tileType[i+','+j]='hole';});
 PAIRS.forEach(zc=>{[-0.3,0.3].forEach(dz=>{const [i,j]=tIdx(SWITCH_X,zc+dz);tileType[i+','+j]='perf';});});
@@ -786,7 +788,6 @@ function makeDesk(seed){
 
 const desks=[];
 slots.forEach((s,i)=>{
-  if(s===EMPTY) return;
   const d=makeDesk(i+1); d.g.position.set(s.cx,0,s.cz); d.g.rotation.y=s.rot; s.desk=d;
   d.top.userData.deskRoot=d.g;   // labels on a desktop highlight / frame the whole desk
   scene.add(d.g); desks.push(d);
@@ -1066,23 +1067,24 @@ function focusOn(o,parent,f,key){
 // desk-level labels each sit on a different desk so they spread across the floor instead of piling onto one
 const deskAt=(p,row,k)=>slotOf(p,row,k).desk;
 const demo=deskAt(0,'B',4);
-// The empty seat leaves a diffuser and a desk end exposed, so use it for those close-ups.
-function emptySpot(){
-  const E=slots.find(s=>!s.desk&&!s.moving)||EMPTY;
-  const N=slots.find(s=>s.key===E.key&&Math.abs(s.k-E.k)===1&&s.desk)||slots.find(s=>s.key===E.key&&s.desk);
-  return {E,N,dx:Math.sign(E.cx-N.cx)||1};
+// Close-ups use a row-end desk: its diffuser and its outer end are unobstructed. If a reshuffle has that
+// slot empty or in motion, fall back to any other row end that has a desk.
+function showcase(){
+  const ends=[SHOWCASE,...slots.filter(s=>s.k===DESKS_PER_ROW-1&&s!==SHOWCASE)];
+  const E=ends.find(s=>s.desk&&!s.moving)||SHOWCASE;
+  return {E,N:E,dx:1};
 }
-const focusDiffuser=(lbl)=>{const {E}=emptySpot();
+const focusDiffuser=(lbl)=>{const {E}=showcase();
   if(lbl) lbl.position.set(E.diff.x,0.05,E.diff.z);   // keep the label on the diffuser being shown
   return {target:V(E.diff.x,0,E.diff.z),pos:V(E.diff.x+0.35,1.15,E.diff.z-E.back*1.35),hl:E.diffMesh};};
-const focusTray=()=>{const {N,dx}=emptySpot(); const tz=N.zc-N.back*0.1;
+const focusTray=()=>{const {N,dx}=showcase(); const tz=N.zc-N.back*0.1;
   return {target:V(N.cx+dx*0.4,deskH-0.15,tz),pos:V(N.cx+dx*1.35,deskH-0.2,tz-N.back*0.75),hl:N.desk.g};};
 // soft "headlamp" that follows close-ups so shadowed spots under desks read
 const focusLight=new THREE.PointLight(0xfff3e0,0,3.5,1.5); scene.add(focusLight);
 label('Air handler · chilled-water coil','ahu',V(-6.9,3.45,0),'air',scene,{t:[-6.6,1.6,0],off:[6,1.6,4.5]});
 label('Underfloor plenum ≈12–16 in','plenum',V(5.5,-0.18,RZ1),'air',scene,{t:[4.0,-0.2,7.4],off:[0.8,0.15,3.2],floor:'xray'});
 label('Concrete floor tiles','floor',V(3.0,0.02,RZ1-0.3),'dim',scene,{t:[3.0,0,7.8],off:[1.2,1.6,2.2]});
-label('Rotatable diffuser','diffuser',V(EMPTY.diff.x,0.05,EMPTY.diff.z),'air',scene,{fn:focusDiffuser,solidFloor:true});
+label('Rotatable diffuser','diffuser',V(SHOWCASE.diff.x,0.05,SHOWCASE.diff.z),'air',scene,{fn:focusDiffuser,solidFloor:true});
 label('PC in under-desk enclosure','pc',V(-0.38,0.62,-0.03),'warm',deskAt(0,'B',6).g,{lt:[-0.38,0.35,0.1],off:[-0.12,1.1,1.95]});
 label('Cable tray (power + data)','tray',V(-0.2,-0.16,-0.32),'',deskAt(0,'A',2).top,{fn:focusTray});
 label('Monitor arms','monitors',V(0,0.9,-0.36),'',deskAt(1,'A',4).top,{lt:[0,1.2,-0.3],off:[0.25,0.25,1.7]});
