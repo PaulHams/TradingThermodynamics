@@ -5,7 +5,7 @@ An interactive three.js model of a trading floor, built from the physical setup 
 the raised floor and underfloor air plenum, rotatable floor diffusers, under-desk PC enclosures,
 wheeled desks, power whips and modules, end-of-row network switches, and the air handlers that feed it all.
 
-Click any label or object to see what the podcast actually said about it, and what the model had to assume.
+Click any label or object to see what the podcast actually said about it, and what was assumed.
 
 ## Running it
 
